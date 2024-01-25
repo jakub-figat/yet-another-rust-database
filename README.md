@@ -1,1 +1,3 @@
-# Work in progress
+# YARD - Yet Another Rust Database
+
+Work in progress

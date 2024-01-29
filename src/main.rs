@@ -1,7 +1,7 @@
 use monoio::io::AsyncWriteRentExt;
 use monoio::net::{TcpListener, TcpStream};
 
-#[monoio::main(driver = "uring")]
+#[monoio::main]
 async fn main() {
     let listener = TcpListener::bind("0.0.0.0:8000").unwrap();
     while let Ok((stream, _)) = listener.accept().await {

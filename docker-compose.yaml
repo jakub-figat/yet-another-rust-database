@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      target: builder
+    ulimits:
+      memlock: -1
+    command: cargo watch -x run
+    container_name: db-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - compile_artifacts:/app/target
+      - ./:/app/
+
+volumes:
+  compile_artifacts:

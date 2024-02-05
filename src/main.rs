@@ -1,16 +1,19 @@
-use monoio::io::AsyncWriteRentExt;
-use monoio::net::{TcpListener, TcpStream};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+use storage::BalancedBST;
 
-#[monoio::main]
-async fn main() {
-    let listener = TcpListener::bind("0.0.0.0:8000").unwrap();
-    while let Ok((stream, _)) = listener.accept().await {
-        monoio::spawn(handle(stream));
+fn main() {
+    let mut tree = BalancedBST::new();
+    let mut rng = thread_rng();
+
+    let mut nums: Vec<_> = (1..=10000).collect();
+    nums.shuffle(&mut rng);
+
+    for num in nums {
+        tree.insert(num, num).unwrap();
+    }
+
+    for node in tree.as_in_order_vec() {
+        println!("{}", node.key)
     }
 }
-
-async fn handle(mut stream: TcpStream) {
-    println!("come");
-    let _ = stream.write_all("hello guy").await;
-}
-

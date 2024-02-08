@@ -10,3 +10,4 @@ edition = "2021"
 storage = { path = "storage" }
 monoio = { version = "0.2.1", features = ["iouring"] }
 rand = "0.8.5"
+skiplist = "0.5.1"

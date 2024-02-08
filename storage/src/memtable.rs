@@ -1,13 +1,6 @@
-// memtable, avl(balanced binary search tree) implementation
-// commit log for preventing data loss on crash
-// when max size is reached, flush to sstable with metadata
-// default 64MB?
-
 use std::cmp::Ordering::Less;
 use std::mem::{size_of_val, swap};
 
-// only for testing purposes
-static mut COUNTER: i32 = 0;
 pub static MEGABYTE: usize = usize::pow(2, 20);
 static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
 
@@ -190,6 +183,7 @@ where
     pub value: V,
     pub left: Option<Box<Node<K, V>>>,
     pub right: Option<Box<Node<K, V>>>,
+    pub balance_factor: usize,
 }
 
 impl<K, V> Node<K, V>
@@ -203,8 +197,7 @@ where
             value,
             left: None,
             right: None,
+            balance_factor: 0,
         }
     }
 }
-
-// TODO balancing

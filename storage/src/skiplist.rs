@@ -1,19 +1,18 @@
 use rand::{thread_rng, Rng};
-use std::cell::RefCell;
 use std::fmt::Debug;
 use std::mem::size_of_val;
-use std::rc::Rc;
+use std::ptr::NonNull;
 
 // memtable, skiplist implementation
 // TODO: commit log for preventing data loss on crash
 // when max size is reached, flush to sstable with metadata
 // default 32MB?
-// try unsafe for better performace?
+// try unsafe for better performacne?
 
 pub static MEGABYTE: usize = usize::pow(2, 20);
-static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
+static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 128;
 
-type ListNode<K, V> = Rc<RefCell<Node<K, V>>>;
+type ListNode<K, V> = NonNull<Node<K, V>>;
 
 pub struct SkipList<K, V>
 where
@@ -43,20 +42,23 @@ where
     }
 
     pub fn get(&self, key: &K) -> Option<V> {
-        let mut current = self.head.clone();
-        for level in (0..self.max_level).rev() {
-            while let Some(next_node) = current.clone().borrow().refs[level].clone() {
-                if key > &next_node.borrow().key {
-                    current = next_node;
-                } else {
-                    break;
+        let mut current = self.head;
+
+        unsafe {
+            for level in (0..self.max_level).rev() {
+                while let Some(next_node) = (*current.as_ptr()).refs[level] {
+                    if key > &(*next_node.as_ptr()).key {
+                        current = next_node;
+                    } else {
+                        break;
+                    }
                 }
             }
-        }
 
-        if let Some(next_node) = current.borrow().refs[0].clone() {
-            if key == &next_node.borrow().key {
-                return Some(next_node.borrow().value.clone());
+            if let Some(next_node) = (*current.as_ptr()).refs[0].clone() {
+                if key == &(*next_node.as_ptr()).key {
+                    return Some((*next_node.as_ptr()).value.clone());
+                }
             }
         }
 
@@ -74,71 +76,71 @@ where
         let new_level = self.get_random_level();
         let update_vec = self.get_update_vec(&key, new_level);
 
-        if let Some(next_node) = update_vec.last().unwrap().borrow().refs[0].clone() {
-            if &key == &next_node.borrow().key {
-                next_node.borrow_mut().key = key;
-                return Ok(());
+        unsafe {
+            if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
+                if &key == &(*next_node.as_ptr()).key {
+                    (*next_node.as_ptr()).key = key;
+                    return Ok(());
+                }
             }
-        }
 
-        let new_node = Node::new(key.clone(), value, new_level);
-        for (level, placement_node) in update_vec.into_iter().rev().enumerate() {
-            new_node.borrow_mut().refs[level] = placement_node.borrow().refs[level].clone();
-            placement_node.borrow_mut().refs[level] = Some(new_node.clone());
+            let new_node = Node::new(key.clone(), value, new_level);
+            for (level, placement_node) in update_vec.into_iter().rev().enumerate() {
+                (*new_node.as_ptr()).refs[level] = (*placement_node.as_ptr()).refs[level].clone();
+                (*placement_node.as_ptr()).refs[level] = Some(new_node);
+            }
+
+            self.memory_size += size_of_val(&new_node);
         }
 
         self.size += 1;
-        self.memory_size += size_of_val(&new_node);
 
         Ok(())
     }
 
     pub fn delete(&mut self, key: &K) -> Option<V> {
         let update_vec = self.get_update_vec(key, self.max_level);
-        let next = update_vec.last().cloned().unwrap().borrow().refs[0].clone();
-        if let Some(next_node) = next {
-            let next_key = next_node.borrow().key.clone();
-            if key == &next_key {
-                self.memory_size -= size_of_val(&next_node);
-                self.size -= 1;
-                for (level, placement_node) in update_vec.iter().rev().enumerate() {
-                    if placement_node.borrow().refs[level]
-                        .as_ref()
-                        .unwrap()
-                        .borrow()
-                        .key
-                        != next_key
-                    {
-                        break;
+
+        unsafe {
+            if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
+                let next_key = &(*next_node.as_ptr()).key;
+                if key == next_key {
+                    self.memory_size -= size_of_val(&next_node);
+                    self.size -= 1;
+                    for (level, placement_node) in update_vec.iter().rev().enumerate() {
+                        if &(*(*placement_node.as_ptr()).refs[level].unwrap().as_ptr()).key
+                            != next_key
+                        {
+                            break;
+                        }
+                        (*placement_node.as_ptr()).refs[level] = (*next_node.as_ptr()).refs[level];
                     }
-                    placement_node.borrow_mut().refs[level] =
-                        next_node.borrow().refs[level].clone();
+                    return Some((*next_node.as_ptr()).value.clone());
                 }
-                return Some(next_node.borrow().value.clone());
             }
         }
-
         None
     }
 
-    fn get_update_vec(&self, key: &K, level_limit: usize) -> Vec<ListNode<K, V>> {
+    fn get_update_vec(&mut self, key: &K, level_limit: usize) -> Vec<ListNode<K, V>> {
         let mut update_vec = Vec::with_capacity(self.max_level);
-        let mut current = self.head.clone();
 
-        for level in (0..self.max_level).rev() {
-            while let Some(next_node) = current.clone().borrow().refs[level].clone() {
-                if key > &next_node.borrow().key {
-                    current = next_node;
-                } else {
-                    break;
+        unsafe {
+            let mut current = self.head;
+            for level in (0..self.max_level).rev() {
+                while let Some(next_node) = (*current.as_ptr()).refs[level] {
+                    if key > &(*next_node.as_ptr()).key {
+                        current = next_node;
+                    } else {
+                        break;
+                    }
+                }
+
+                if level < level_limit {
+                    update_vec.push(current);
                 }
             }
-
-            if level < level_limit {
-                update_vec.push(current.clone());
-            }
         }
-
         update_vec
     }
 
@@ -160,9 +162,11 @@ impl SkipList<i32, i32> {
             let mut line: Vec<String> = Vec::new();
             let mut current = self.head.clone();
 
-            while let Some(next_node) = current.clone().borrow().refs[level].clone() {
-                line.push(next_node.borrow().key.to_string());
-                current = next_node;
+            unsafe {
+                while let Some(next_node) = current.as_ref().refs[level] {
+                    line.push(next_node.as_ref().key.to_string());
+                    current = next_node;
+                }
             }
 
             println!("level {}", level + 1);
@@ -190,11 +194,16 @@ where
     V: Clone + Sized + Debug,
 {
     pub fn new(key: K, value: V, level: usize) -> ListNode<K, V> {
-        Rc::new(RefCell::new(Node {
+        let boxed_node = Box::new(Node {
             key,
             value,
             refs: (0..level).map(|_| None).collect(),
-        }))
+        });
+        NonNull::from(Box::leak(boxed_node))
+        // TODO: memory cleanup
+        // for every node:
+        // put it back into box from raw pointer
+        // move to next node
     }
 }
 

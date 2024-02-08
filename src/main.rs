@@ -6,11 +6,18 @@ use storage::SkipList;
 
 fn main() {
     // 6secs for 1mln, 42s! for 5mln
-    // on release build: 1sec for 1mln, 10secs for 5mln
+    // with unsafe: 3s for 1mln, 21s for 5mln, 53s for 10mln
+
+    // on release build: 1sec for 1mln, 10secs for 5mln, 2mins? for 10mln
+    // on release with unsafe: 0.8s for 1mln, 9sec for 5mln, 24s for 10mln
+
+    // for dev: 2x speedup with unsafe
+    // for release: some speedup for 1-5mln and massive speedup for 10mln
+    // unsafe is the way to go
     let mut list = SkipList::new(16, 0.5);
     let mut rng = thread_rng();
 
-    let mut nums: Vec<_> = (1..=i32::pow(10, 6)).collect();
+    let mut nums: Vec<_> = (1..=i32::pow(10, 7)).collect();
     nums.shuffle(&mut rng);
 
     let start = Instant::now();
@@ -23,7 +30,7 @@ fn main() {
     stdin().read_line(&mut input).unwrap();
 
     let search = Instant::now();
-    list.get(&7000000);
+    list.get(&7999999);
 
     println!("Search time: {} microseconds", search.elapsed().as_micros());
     // let delete = Instant::now();

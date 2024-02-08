@@ -10,13 +10,8 @@ fn main() {
     let mut list = SkipList::new(16, 0.5);
     let mut rng = thread_rng();
 
-    let mut nums_prep: Vec<_> = (1..=i32::pow(10, 6)).collect();
-    nums_prep.shuffle(&mut rng);
-    let mut nums = vec![];
-
-    for num in nums_prep {
-        nums.push(num);
-    }
+    let mut nums: Vec<_> = (1..=i32::pow(10, 6)).collect();
+    nums.shuffle(&mut rng);
 
     let start = Instant::now();
     for num in nums.iter() {

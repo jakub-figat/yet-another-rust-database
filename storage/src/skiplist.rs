@@ -121,7 +121,8 @@ where
                         }
                         (*placement_node.as_ptr()).refs[level] = (*next_node.as_ptr()).refs[level];
                     }
-                    return Some((*next_node.as_ptr()).value.clone());
+                    let boxed_node = Box::from_raw(next_node.as_ptr());
+                    return Some(boxed_node.value.clone());
                 }
             }
         }

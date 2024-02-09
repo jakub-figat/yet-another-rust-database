@@ -4,4 +4,4 @@ mod sstable;
 
 pub use memtable::BalancedBST;
 pub use memtable::MEGABYTE;
-pub use skiplist::{MinusInf, SkipList};
+pub use skiplist::SkipList;

@@ -53,6 +53,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "get-size"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47b61e2dab7eedce93a83ab3468b919873ff16bac5a3e704011ff836d22b2120"
+
+[[package]]
 name = "getrandom"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -236,6 +242,7 @@ dependencies = [
 name = "storage"
 version = "0.1.0"
 dependencies = [
+ "get-size",
  "monoio",
  "rand",
 ]

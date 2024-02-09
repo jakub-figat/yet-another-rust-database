@@ -1,6 +1,7 @@
+use get_size::GetSize;
 use rand::{thread_rng, Rng};
 use std::fmt::Debug;
-use std::mem::{size_of, size_of_val};
+use std::mem::size_of;
 use std::ptr::NonNull;
 
 // memtable, skiplist implementation
@@ -9,33 +10,31 @@ use std::ptr::NonNull;
 // default 64MB?
 
 pub static MEGABYTE: usize = usize::pow(2, 20);
-static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 96;
+static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 128;
 // TODO: fix bad memory tracking
 // looking at top command, seems like 1mln is around 52MB
 // by jemalloc analysis, 1mln = 47MB
 
-type ListNode<K, V> = NonNull<Node<K, V>>;
+type ListNode<V> = NonNull<Node<V>>;
 
-pub struct SkipList<K, V>
+pub struct SkipList<V>
 where
-    K: Clone + Sized + MinusInf + PartialEq + Debug,
-    V: Clone + Sized + Debug,
+    V: Clone + Sized + Default + GetSize + Debug,
 {
-    pub head: ListNode<K, V>,
+    pub head: ListNode<V>,
     pub max_level: usize,
     pub level_probability: f64,
     pub memory_size: usize,
     pub size: usize,
 }
 
-impl<K, V> SkipList<K, V>
+impl<V> SkipList<V>
 where
-    K: Clone + Sized + MinusInf + PartialEq + Debug,
-    V: Clone + Sized + Default + Debug,
+    V: Clone + Sized + Default + GetSize + Debug,
 {
-    pub fn new(max_level: usize, level_probability: f64) -> SkipList<K, V> {
+    pub fn new(max_level: usize, level_probability: f64) -> SkipList<V> {
         SkipList {
-            head: Node::new(K::get_minus_inf(), V::default(), max_level),
+            head: Node::new(String::new(), V::default(), max_level),
             max_level,
             level_probability,
             memory_size: 0,
@@ -43,7 +42,7 @@ where
         }
     }
 
-    pub fn get(&self, key: &K) -> Option<V> {
+    pub fn get(&self, key: &str) -> Option<V> {
         let mut current = self.head;
 
         unsafe {
@@ -67,7 +66,7 @@ where
         None
     }
 
-    pub fn insert(&mut self, key: K, value: V) -> Result<(), String> {
+    pub fn insert(&mut self, key: String, value: V) -> Result<(), String> {
         if self.memory_size > MEMTABLE_MAX_SIZE_MEGABYTES * MEGABYTE {
             Err(format!(
                 "Memtable reached max size of {} MB with {} nodes",
@@ -91,14 +90,14 @@ where
                 (*new_node.as_ptr()).refs[level] = (*placement_node.as_ptr()).refs[level].clone();
                 (*placement_node.as_ptr()).refs[level] = Some(new_node);
             }
-            self.memory_size += (*new_node.as_ptr()).memory_size();
+            self.memory_size += (*new_node.as_ptr()).get_memory_size();
         }
 
         self.size += 1;
         Ok(())
     }
 
-    pub fn delete(&mut self, key: &K) -> Option<V> {
+    pub fn delete(&mut self, key: &str) -> Option<V> {
         let update_vec = self.get_update_vec(key, self.max_level);
 
         unsafe {
@@ -118,7 +117,7 @@ where
                     }
                     let boxed_node = Box::from_raw(next_node.as_ptr());
 
-                    self.memory_size -= (*next_node.as_ptr()).memory_size();
+                    self.memory_size -= (*next_node.as_ptr()).get_memory_size();
                     self.size -= 1;
                     return Some(boxed_node.value.clone());
                 }
@@ -127,7 +126,7 @@ where
         None
     }
 
-    fn get_update_vec(&mut self, key: &K, level_limit: usize) -> Vec<ListNode<K, V>> {
+    fn get_update_vec(&mut self, key: &str, level_limit: usize) -> Vec<ListNode<V>> {
         let mut update_vec = Vec::with_capacity(self.max_level);
 
         unsafe {
@@ -161,10 +160,9 @@ where
     }
 }
 
-impl<K, V> Drop for SkipList<K, V>
+impl<V> Drop for SkipList<V>
 where
-    K: Clone + Sized + MinusInf + PartialEq + Debug,
-    V: Clone + Sized + Debug,
+    V: Clone + Sized + Default + GetSize + Debug,
 {
     fn drop(&mut self) {
         let mut current = Some(self.head);
@@ -176,40 +174,38 @@ where
         }
     }
 }
-
-impl SkipList<i32, i32> {
-    pub fn print_levels(&self) {
-        for level in (0..self.max_level).rev() {
-            let mut line: Vec<String> = Vec::new();
-            let mut current = self.head.clone();
-
-            unsafe {
-                while let Some(next_node) = current.as_ref().refs[level] {
-                    line.push(next_node.as_ref().key.to_string());
-                    current = next_node;
-                }
-            }
-        }
-    }
-}
+//
+// impl SkipList<i32, i32> {
+//     pub fn print_levels(&self) {
+//         for level in (0..self.max_level).rev() {
+//             let mut line: Vec<String> = Vec::new();
+//             let mut current = self.head.clone();
+//
+//             unsafe {
+//                 while let Some(next_node) = current.as_ref().refs[level] {
+//                     line.push(next_node.as_ref().key.to_string());
+//                     current = next_node;
+//                 }
+//             }
+//         }
+//     }
+// }
 
 #[derive(Debug)]
-pub struct Node<K, V>
+pub struct Node<V>
 where
-    K: Clone + Sized + MinusInf + PartialEq + Debug,
-    V: Clone + Sized + Debug,
+    V: Clone + Sized + Default + GetSize + Debug,
 {
-    pub key: K,
+    pub key: String,
     pub value: V,
-    pub refs: Vec<Option<ListNode<K, V>>>,
+    pub refs: Vec<Option<ListNode<V>>>,
 }
 
-impl<K, V> Node<K, V>
+impl<V> Node<V>
 where
-    K: Clone + Sized + MinusInf + PartialEq + Debug,
-    V: Clone + Sized + Debug,
+    V: Clone + Sized + Default + GetSize + Debug,
 {
-    pub fn new(key: K, value: V, level: usize) -> ListNode<K, V> {
+    pub fn new(key: String, value: V, level: usize) -> ListNode<V> {
         let boxed_node = Box::new(Node {
             key,
             value,
@@ -218,23 +214,10 @@ where
         NonNull::from(Box::leak(boxed_node))
     }
 
-    pub fn memory_size(&self) -> usize {
-        size_of_val(self) + size_of::<Option<ListNode<K, V>>>() * self.refs.capacity()
-    }
-}
-
-pub trait MinusInf: PartialOrd {
-    fn get_minus_inf() -> Self;
-}
-
-impl MinusInf for i32 {
-    fn get_minus_inf() -> Self {
-        i32::MIN
-    }
-}
-
-impl MinusInf for usize {
-    fn get_minus_inf() -> Self {
-        usize::MIN
+    pub fn get_memory_size(&self) -> usize {
+        self.key.get_size()
+            + self.value.get_size()
+            + size_of::<Vec<Option<ListNode<V>>>>()
+            + size_of::<Option<ListNode<V>>>() * self.refs.capacity()
     }
 }

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 monoio = { version = "0.2.1", features = ["iouring"] }
 rand = "0.8.5"
+get-size = "0.1.4"

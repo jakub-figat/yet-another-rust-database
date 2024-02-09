@@ -10,7 +10,8 @@ use std::ptr::NonNull;
 // try unsafe for better performacne?
 
 pub static MEGABYTE: usize = usize::pow(2, 20);
-static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 128;
+static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
+// TODO: fix bad memory tracking
 
 type ListNode<K, V> = NonNull<Node<K, V>>;
 
@@ -153,6 +154,22 @@ where
         }
 
         level
+    }
+}
+
+impl<K, V> Drop for SkipList<K, V>
+where
+    K: Clone + Sized + MinusInf + PartialEq + Debug,
+    V: Clone + Sized + Debug,
+{
+    fn drop(&mut self) {
+        let mut current = Some(self.head);
+        unsafe {
+            while let Some(current_node) = current {
+                let boxed_node = Box::from_raw(current_node.as_ptr());
+                current = boxed_node.refs[0];
+            }
+        }
     }
 }
 

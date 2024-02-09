@@ -1,4 +1,3 @@
-use std::alloc::Allocator;
 use rand::{thread_rng, Rng};
 use std::fmt::Debug;
 use std::mem::size_of_val;
@@ -14,14 +13,15 @@ pub static MEGABYTE: usize = usize::pow(2, 20);
 static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
 // TODO: fix bad memory tracking
 // looking at top command, seems like 1mln is around 52MB
+// data from jemalloc: 1mln ~ 49331303 bytes = 47MB
+// if the sizing is implemented correctly, error should be thrown after around 1.3mln
 
 type ListNode<K, V> = NonNull<Node<K, V>>;
 
-pub struct SkipList<K, V, A>
+pub struct SkipList<K, V>
 where
     K: Clone + Sized + MinusInf + PartialEq + Debug,
     V: Clone + Sized + Debug,
-    A: Allocator
 {
     pub head: ListNode<K, V>,
     pub max_level: usize,

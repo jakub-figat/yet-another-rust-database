@@ -10,8 +10,7 @@ mod tests {
     fn test_list() {
         {
             let mut list = SkipList::new(16, 0.5);
-
-            let mut nums: Vec<_> = (1..=i32::pow(10, 3)).collect();
+            let nums: Vec<_> = (1..=i32::pow(10, 3)).collect();
 
             for num in nums.iter() {
                 list.insert(num.clone(), num.clone()).unwrap();

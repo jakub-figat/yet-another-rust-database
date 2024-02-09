@@ -1,4 +1,3 @@
-use std::alloc::Allocator;
 use rand::{thread_rng, Rng};
 use std::fmt::Debug;
 use std::mem::size_of_val;
@@ -7,21 +6,20 @@ use std::ptr::NonNull;
 // memtable, skiplist implementation
 // TODO: commit log for preventing data loss on crash
 // when max size is reached, flush to sstable with metadata
-// default 32MB?
-// try unsafe for better performacne?
+// default 64MB?
 
 pub static MEGABYTE: usize = usize::pow(2, 20);
 static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
 // TODO: fix bad memory tracking
 // looking at top command, seems like 1mln is around 52MB
+// by jemalloc analysis, 1mln = 47MB
 
 type ListNode<K, V> = NonNull<Node<K, V>>;
 
-pub struct SkipList<K, V, A>
+pub struct SkipList<K, V>
 where
     K: Clone + Sized + MinusInf + PartialEq + Debug,
     V: Clone + Sized + Debug,
-    A: Allocator
 {
     pub head: ListNode<K, V>,
     pub max_level: usize,

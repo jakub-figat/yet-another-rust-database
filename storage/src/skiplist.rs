@@ -1,6 +1,6 @@
 use rand::{thread_rng, Rng};
 use std::fmt::Debug;
-use std::mem::size_of_val;
+use std::mem::{size_of, size_of_val};
 use std::ptr::NonNull;
 
 // memtable, skiplist implementation
@@ -9,7 +9,7 @@ use std::ptr::NonNull;
 // default 64MB?
 
 pub static MEGABYTE: usize = usize::pow(2, 20);
-static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
+static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 96;
 // TODO: fix bad memory tracking
 // looking at top command, seems like 1mln is around 52MB
 // by jemalloc analysis, 1mln = 47MB
@@ -91,12 +91,10 @@ where
                 (*new_node.as_ptr()).refs[level] = (*placement_node.as_ptr()).refs[level].clone();
                 (*placement_node.as_ptr()).refs[level] = Some(new_node);
             }
-
-            self.memory_size += size_of_val(&new_node);
+            self.memory_size += (*new_node.as_ptr()).memory_size();
         }
 
         self.size += 1;
-
         Ok(())
     }
 
@@ -107,9 +105,6 @@ where
             if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
                 let next_key = &(*next_node.as_ptr()).key;
                 if key == next_key {
-                    self.memory_size -= size_of_val(&next_node);
-                    self.size -= 1;
-
                     let node_level = (*next_node.as_ptr()).refs.len();
                     for (level, placement_node) in
                         update_vec.iter().rev().take(node_level).enumerate()
@@ -122,6 +117,9 @@ where
                         (*placement_node.as_ptr()).refs[level] = (*next_node.as_ptr()).refs[level];
                     }
                     let boxed_node = Box::from_raw(next_node.as_ptr());
+
+                    self.memory_size -= (*next_node.as_ptr()).memory_size();
+                    self.size -= 1;
                     return Some(boxed_node.value.clone());
                 }
             }
@@ -191,11 +189,6 @@ impl SkipList<i32, i32> {
                     current = next_node;
                 }
             }
-
-            println!("level {}", level + 1);
-            println!("elements: {}", line.len());
-            println!("{}", line.join("-"));
-            println!("\n");
         }
     }
 }
@@ -223,6 +216,10 @@ where
             refs: (0..level).map(|_| None).collect(),
         });
         NonNull::from(Box::leak(boxed_node))
+    }
+
+    pub fn memory_size(&self) -> usize {
+        size_of_val(self) + size_of::<Option<ListNode<K, V>>>() * self.refs.capacity()
     }
 }
 

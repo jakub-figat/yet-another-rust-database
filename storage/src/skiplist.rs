@@ -1,3 +1,4 @@
+use std::alloc::Allocator;
 use rand::{thread_rng, Rng};
 use std::fmt::Debug;
 use std::mem::size_of_val;
@@ -12,13 +13,15 @@ use std::ptr::NonNull;
 pub static MEGABYTE: usize = usize::pow(2, 20);
 static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
 // TODO: fix bad memory tracking
+// looking at top command, seems like 1mln is around 52MB
 
 type ListNode<K, V> = NonNull<Node<K, V>>;
 
-pub struct SkipList<K, V>
+pub struct SkipList<K, V, A>
 where
     K: Clone + Sized + MinusInf + PartialEq + Debug,
     V: Clone + Sized + Debug,
+    A: Allocator
 {
     pub head: ListNode<K, V>,
     pub max_level: usize,
@@ -108,7 +111,11 @@ where
                 if key == next_key {
                     self.memory_size -= size_of_val(&next_node);
                     self.size -= 1;
-                    for (level, placement_node) in update_vec.iter().rev().enumerate() {
+
+                    let node_level = (*next_node.as_ptr()).refs.len();
+                    for (level, placement_node) in
+                        update_vec.iter().rev().take(node_level).enumerate()
+                    {
                         if &(*(*placement_node.as_ptr()).refs[level].unwrap().as_ptr()).key
                             != next_key
                         {
@@ -217,10 +224,6 @@ where
             refs: (0..level).map(|_| None).collect(),
         });
         NonNull::from(Box::leak(boxed_node))
-        // TODO: memory cleanup
-        // for every node:
-        // put it back into box from raw pointer
-        // move to next node
     }
 }
 

@@ -4,7 +4,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use storage::SkipList;x
+    use storage::SkipList;
 
     #[test]
     fn test_list() {

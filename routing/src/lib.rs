@@ -1,4 +1,10 @@
+use crate::Command::{Delete, Get, Insert};
 use futures::channel::mpsc;
+use futures::{SinkExt, StreamExt};
+use monoio::FusionDriver;
+use std::thread;
+use storage::row::Row;
+use storage::SkipList;
 
 #[derive(Debug)]
 pub enum Command {
@@ -11,9 +17,9 @@ pub enum Command {
 impl Command {
     pub fn primary_key(&self) -> String {
         match self {
-            Command::Get(hash_key, sort_key) => get_primary_key(hash_key, sort_key),
-            Command::Insert(hash_key, sort_key) => get_primary_key(hash_key, sort_key),
-            Command::Delete(hash_key, sort_key) => get_primary_key(hash_key, sort_key),
+            Get(hash_key, sort_key) => get_primary_key(hash_key, sort_key),
+            Insert(hash_key, sort_key) => get_primary_key(hash_key, sort_key),
+            Delete(hash_key, sort_key) => get_primary_key(hash_key, sort_key),
         }
     }
 }
@@ -40,3 +46,48 @@ pub type CommandReceiver = mpsc::Receiver<Command>;
 
 pub type ResponseSender = mpsc::Sender<Response>;
 pub type ResponseReceiver = mpsc::Receiver<Response>;
+
+pub fn run_storage_threads(num_of_workers: usize) -> (Vec<CommandSender>, Vec<ResponseReceiver>) {
+    let mut senders = Vec::with_capacity(num_of_workers);
+    let mut receivers = Vec::with_capacity(num_of_workers);
+    for _ in 0..num_of_workers {
+        let (command_sender, mut command_receiver) = mpsc::channel(64);
+        senders.push(command_sender);
+
+        let (response_sender, response_receiver) = mpsc::channel(64);
+        receivers.push(response_receiver);
+
+        thread::spawn(move || {
+            let mut response_sender = response_sender.clone();
+            let mut runtime = monoio::RuntimeBuilder::<FusionDriver>::new()
+                .build()
+                .unwrap();
+            runtime.block_on(async {
+                let mut list = SkipList::default();
+
+                while let Some(command) = command_receiver.next().await {
+                    match command {
+                        Get(hash_key, sort_key) => {
+                            let val = list
+                                .get(&Row::new(hash_key, sort_key, 1))
+                                .map(|row| (row.hash_key.clone(), row.sort_key));
+                            let _ = response_sender.send(Response::Get(val)).await;
+                        }
+                        Insert(hash_key, sort_key) => {
+                            let val = list.insert(Row::new(hash_key, sort_key, 1));
+                            let _ = response_sender.send(Response::Write(val)).await;
+                        }
+                        Delete(hash_key, sort_key) => {
+                            let val = list
+                                .delete(&Row::new(hash_key, sort_key, 1))
+                                .map(|row| (row.hash_key.clone(), row.sort_key));
+                            let _ = response_sender.send(Response::Delete(val)).await;
+                        }
+                    }
+                }
+            })
+        });
+    }
+
+    (senders, receivers)
+}

@@ -421,6 +421,9 @@ name = "routing"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "monoio",
+ "murmur3",
+ "storage",
 ]
 
 [[package]]

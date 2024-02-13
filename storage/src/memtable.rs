@@ -1,203 +1,204 @@
-use std::cmp::Ordering::Less;
-use std::mem::{size_of_val, swap};
+use get_size::GetSize;
+use rand::{thread_rng, Rng};
+use std::mem::size_of;
+use std::ptr::NonNull;
 
 pub static MEGABYTE: usize = usize::pow(2, 20);
-static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
+static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 128;
 
-pub struct BalancedBST<K, V>
+type ListNode<T> = NonNull<Node<T>>;
+
+pub struct SkipList<T>
 where
-    K: Clone + Sized + Ord + PartialEq,
-    V: Clone + Sized,
+    T: PartialEq + PartialOrd + Default + GetSize,
 {
-    number_of_nodes: usize,
+    pub head: ListNode<T>,
+    pub max_level: usize,
+    pub level_probability: f64,
+    pub memory_size: usize,
     pub size: usize,
-    pub root: Option<Box<Node<K, V>>>,
 }
 
-impl<K, V> BalancedBST<K, V>
+impl<T> SkipList<T>
 where
-    K: Clone + Sized + Ord + PartialEq,
-    V: Clone + Sized,
+    T: PartialEq + PartialOrd + Default + GetSize,
 {
-    pub fn new() -> BalancedBST<K, V> {
-        BalancedBST {
-            number_of_nodes: 0,
+    pub fn new(max_level: usize, level_probability: f64) -> SkipList<T> {
+        SkipList {
+            head: Node::new(T::default(), max_level),
+            max_level,
+            level_probability,
+            memory_size: 0,
             size: 0,
-            root: None,
         }
     }
 
-    pub fn get(&self, key: &K) -> Option<&Box<Node<K, V>>> {
-        let mut current = &self.root;
-
-        while let Some(current_node) = current {
-            // testing
-            // unsafe {
-            //     COUNTER += 1;
-            //     println!("{}", COUNTER);
-            // }
-
-            if key == &current_node.key {
-                return Some(current_node);
-            }
-
-            match key.cmp(&current_node.key) {
-                Less => current = &current_node.left,
-                _ => current = &current_node.right,
-            }
+    pub fn default() -> SkipList<T> {
+        SkipList {
+            head: Node::new(T::default(), 16),
+            max_level: 16,
+            level_probability: 0.5,
+            memory_size: 0,
+            size: 0,
         }
-
-        None
     }
 
-    pub fn get_mut(&mut self, key: &K) -> Option<&mut Box<Node<K, V>>> {
-        let mut current = &mut self.root;
+    pub fn get(&self, value: &T) -> Option<&T> {
+        let mut current = self.head;
 
-        while let Some(current_node) = current {
-            if key == &current_node.key {
-                return Some(current_node);
+        unsafe {
+            for level in (0..self.max_level).rev() {
+                while let Some(next_node) = (*current.as_ptr()).refs[level] {
+                    if value > &(*next_node.as_ptr()).value {
+                        current = next_node;
+                    } else {
+                        break;
+                    }
+                }
             }
 
-            match key.cmp(&current_node.key) {
-                Less => current = &mut current_node.left,
-                _ => current = &mut current_node.right,
+            if let Some(next_node) = (*current.as_ptr()).refs[0].clone() {
+                if value == &(*next_node.as_ptr()).value {
+                    return Some(&(*next_node.as_ptr()).value);
+                }
             }
         }
 
         None
     }
 
-    pub fn insert(&mut self, key: K, value: V) -> Result<(), String> {
-        if self.size > MEMTABLE_MAX_SIZE_MEGABYTES * MEGABYTE {
+    pub fn insert(&mut self, value: T) -> Result<(), String> {
+        if self.memory_size > MEMTABLE_MAX_SIZE_MEGABYTES * MEGABYTE {
             Err(format!(
-                "Memtable reached max size of {} MB",
-                MEMTABLE_MAX_SIZE_MEGABYTES
+                "Memtable reached max size of {} MB with {} nodes",
+                MEMTABLE_MAX_SIZE_MEGABYTES, self.size
             ))?
         }
 
-        self.size += size_of_val(&key) + size_of_val(&value);
-        self.number_of_nodes += 1;
+        let new_level = self.get_random_level();
+        let update_vec = self.get_update_vec(&value, new_level);
 
-        let mut current = &mut self.root;
-
-        while let Some(current_node) = current {
-            match key.cmp(&current_node.key) {
-                Less => current = &mut current_node.left,
-                _ => current = &mut current_node.right,
+        unsafe {
+            if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
+                if &value == &(*next_node.as_ptr()).value {
+                    (*next_node.as_ptr()).value = value;
+                    return Ok(());
+                }
             }
+
+            let new_node = Node::new(value, new_level);
+            for (level, placement_node) in update_vec.into_iter().rev().enumerate() {
+                (*new_node.as_ptr()).refs[level] = (*placement_node.as_ptr()).refs[level].clone();
+                (*placement_node.as_ptr()).refs[level] = Some(new_node);
+            }
+            self.memory_size += (*new_node.as_ptr()).get_memory_size();
         }
 
-        *current = Some(Box::new(Node::new(key, value)));
+        self.size += 1;
         Ok(())
     }
 
-    pub fn delete(&mut self, key: &K) -> Option<Box<Node<K, V>>> {
-        let mut current = &mut self.root;
-        while let Some(mut current_node) = current.take() {
-            if key == &current_node.key {
-                // 1. two childs
-                if current_node.left.is_some() && current_node.right.is_some() {
-                    let mut next_in_order = &mut current_node.right;
+    pub fn delete(&mut self, value: &T) -> Option<T> {
+        let update_vec = self.get_update_vec(value, self.max_level);
 
-                    // follow left side until the end
-                    while next_in_order.as_ref().unwrap().left.is_some() {
-                        next_in_order = &mut next_in_order.as_mut().unwrap().left;
+        unsafe {
+            if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
+                let next_value = &(*next_node.as_ptr()).value;
+                if value == next_value {
+                    let node_level = (*next_node.as_ptr()).refs.len();
+                    for (level, placement_node) in
+                        update_vec.iter().rev().take(node_level).enumerate()
+                    {
+                        if &(*(*placement_node.as_ptr()).refs[level].unwrap().as_ptr()).value
+                            != next_value
+                        {
+                            break;
+                        }
+                        (*placement_node.as_ptr()).refs[level] = (*next_node.as_ptr()).refs[level];
                     }
+                    let boxed_node = Box::from_raw(next_node.as_ptr());
 
-                    let mut removed_node = next_in_order.take().unwrap();
-
-                    // if the leftmost node had a child, put it in the parent position
-                    if let Some(right_node) = removed_node.right.take() {
-                        *next_in_order = Some(right_node);
-                    }
-
-                    swap(&mut current_node.key, &mut removed_node.key);
-                    swap(&mut current_node.value, &mut removed_node.value);
-                    *current = Some(current_node);
-
-                    return Some(removed_node);
-                }
-
-                // 2. no childs
-                if current_node.left.is_none() && current_node.right.is_none() {
-                    return Some(current_node);
-                }
-
-                // 3. one child, either left or right
-                let next_node = current_node
-                    .left
-                    .take()
-                    .unwrap_or(current_node.right.take().unwrap());
-                *current = Some(next_node);
-
-                return Some(current_node);
-            }
-
-            match key.cmp(&current_node.key) {
-                Less => {
-                    *current = Some(current_node);
-                    current = &mut current.as_mut().unwrap().left;
-                }
-                _ => {
-                    *current = Some(current_node);
-                    current = &mut current.as_mut().unwrap().right;
+                    self.memory_size -= (*next_node.as_ptr()).get_memory_size();
+                    self.size -= 1;
+                    return Some(boxed_node.value);
                 }
             }
         }
-
         None
     }
 
-    pub fn as_in_order_vec(&self) -> Vec<&Box<Node<K, V>>> {
-        let mut nodes = Vec::with_capacity(self.number_of_nodes);
-        let mut stack = Vec::new();
+    fn get_update_vec(&mut self, value: &T, level_limit: usize) -> Vec<ListNode<T>> {
+        let mut update_vec = Vec::with_capacity(self.max_level);
 
-        let mut current = self.root.as_ref();
+        unsafe {
+            let mut current = self.head;
+            for level in (0..self.max_level).rev() {
+                while let Some(next_node) = (*current.as_ptr()).refs[level] {
+                    if value > &(*next_node.as_ptr()).value {
+                        current = next_node;
+                    } else {
+                        break;
+                    }
+                }
 
-        loop {
-            while let Some(current_node) = current {
-                stack.push(current_node);
-                current = current_node.left.as_ref();
-            }
-
-            if let Some(next_node) = stack.pop() {
-                nodes.push(next_node);
-                current = next_node.right.as_ref();
-            }
-
-            if current.is_none() && stack.is_empty() {
-                break;
+                if level < level_limit {
+                    update_vec.push(current);
+                }
             }
         }
-        nodes
+        update_vec
+    }
+
+    fn get_random_level(&self) -> usize {
+        let mut rng = thread_rng();
+        let mut level = 1;
+
+        while rng.gen_bool(self.level_probability) && level < self.max_level {
+            level += 1;
+        }
+
+        level
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Node<K, V>
+impl<T> Drop for SkipList<T>
 where
-    K: Clone + Sized + Ord + PartialEq,
-    V: Clone + Sized,
+    T: PartialEq + PartialOrd + Default + GetSize,
 {
-    pub key: K,
-    pub value: V,
-    pub left: Option<Box<Node<K, V>>>,
-    pub right: Option<Box<Node<K, V>>>,
-    pub balance_factor: usize,
+    fn drop(&mut self) {
+        let mut current = Some(self.head);
+        unsafe {
+            while let Some(current_node) = current {
+                let boxed_node = Box::from_raw(current_node.as_ptr());
+                current = boxed_node.refs[0];
+            }
+        }
+    }
 }
 
-impl<K, V> Node<K, V>
+pub struct Node<T>
 where
-    K: Clone + Sized + Ord + PartialEq,
-    V: Clone + Sized,
+    T: PartialEq + PartialOrd + Default + GetSize,
 {
-    pub fn new(key: K, value: V) -> Node<K, V> {
-        Node {
-            key,
+    pub value: T,
+    pub refs: Vec<Option<ListNode<T>>>,
+}
+
+impl<T> Node<T>
+where
+    T: PartialEq + PartialOrd + Default + GetSize,
+{
+    pub fn new(value: T, level: usize) -> ListNode<T> {
+        let boxed_node = Box::new(Node {
             value,
-            left: None,
-            right: None,
-            balance_factor: 0,
-        }
+            refs: (0..level).map(|_| None).collect(),
+        });
+        NonNull::from(Box::leak(boxed_node))
+    }
+
+    pub fn get_memory_size(&self) -> usize {
+        self.value.get_size()
+            + size_of::<Vec<Option<ListNode<T>>>>()
+            + size_of::<Option<ListNode<T>>>() * self.refs.capacity()
     }
 }

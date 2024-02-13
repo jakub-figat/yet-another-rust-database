@@ -1,7 +1,5 @@
 mod memtable;
-mod skiplist;
+pub mod row;
 mod sstable;
 
-pub use memtable::BalancedBST;
-pub use memtable::MEGABYTE;
-pub use skiplist::SkipList;
+pub use memtable::{SkipList, MEGABYTE};

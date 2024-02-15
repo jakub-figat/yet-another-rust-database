@@ -4,7 +4,7 @@ use std::mem::size_of;
 use std::ptr::NonNull;
 
 pub static MEGABYTE: usize = usize::pow(2, 20);
-static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 128;
+static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
 
 type ListNode<T> = NonNull<Node<T>>;
 

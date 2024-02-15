@@ -1,36 +1,27 @@
 use monoio::FusionDriver;
 use routing::Command::*;
 use routing::ThreadRouter;
-use std::thread::{self, available_parallelism};
-use std::time::Duration;
+use std::thread::available_parallelism;
 use storage::Value::*;
 
 fn main() {
     let mut main_runtime = monoio::RuntimeBuilder::<FusionDriver>::new()
         .build()
         .unwrap();
+    main_runtime.block_on(run());
+}
+
+async fn run() {
     let num_of_threads = available_parallelism().unwrap().get() - 1;
     let mut thread_router = ThreadRouter::new(num_of_threads);
+    let insert_nums: Vec<_> = (1..=100).collect();
 
-    main_runtime.block_on(async {
-        let commands = vec![
-            Get("5".to_string(), Int32(5)),
-            Insert(
-                "5".to_string(),
-                Int32(5),
-                vec![Text("abc".to_string()), Boolean(true)],
-            ),
-            Get("5".to_string(), Int32(5)),
-            Delete("5".to_string(), Int32(5)),
-            Get("5".to_string(), Int32(5)),
-        ];
+    let commands: Vec<_> = insert_nums
+        .iter()
+        .map(|&num| Insert(num.to_string(), Unsigned64(num), vec![]))
+        .collect();
 
-        for command in commands {
-            let response = thread_router.send_command(command).await.unwrap();
-            println!("{:?}", response);
-        }
-        thread::sleep(Duration::from_secs(2));
-    });
+    let _ = thread_router.send_in_batches(commands).await;
 }
 
 // skiplist expected times

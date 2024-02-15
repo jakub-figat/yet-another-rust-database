@@ -10,6 +10,12 @@ use storage::{Row, Value};
 
 static MURMUR3_SEED: u32 = 1119284470;
 
+pub type CommandSender = mpsc::UnboundedSender<Command>;
+pub type CommandReceiver = mpsc::UnboundedReceiver<Command>;
+
+pub type ResponseSender = mpsc::UnboundedSender<Response>;
+pub type ResponseReceiver = mpsc::UnboundedReceiver<Response>;
+
 pub struct ThreadRouter {
     senders: Vec<CommandSender>,
     receivers: Vec<ResponseReceiver>,
@@ -34,6 +40,46 @@ impl ThreadRouter {
         let receiver = &mut self.receivers[partition];
         let _ = sender.send(command).await;
         receiver.next().await
+    }
+
+    pub async fn send_in_batches(&mut self, commands: Vec<Command>) -> Vec<Response> {
+        let mut batches: Vec<_> = (0..self.num_of_threads).map(|_| Vec::new()).collect();
+        let mut responses_vec: Vec<Option<Response>> = (0..commands.len()).map(|_| None).collect();
+        let mut response_index = 0usize;
+
+        for command in commands {
+            let primary_key = command.primary_key();
+            let hash = murmur3_32(&mut Cursor::new(&primary_key), MURMUR3_SEED).unwrap();
+            let partition = (hash % (self.num_of_threads as u32)) as usize;
+            batches[partition].push((response_index, command));
+            response_index += 1;
+        }
+
+        let mut response_batches: Vec<_> = (0..batches.len()).map(|_| Vec::new()).collect();
+        for (partition, batch) in batches
+            .into_iter()
+            .enumerate()
+            .filter(|(_, batch)| !batch.is_empty())
+        {
+            let mut sender = self.senders[partition].clone();
+            for (response_index, command) in batch {
+                response_batches[partition].push(response_index);
+                sender.send(command).await.unwrap();
+            }
+        }
+
+        for (partition, response_indexes) in response_batches.into_iter().enumerate() {
+            let receiver = &mut self.receivers[partition];
+            for index in response_indexes {
+                let response = receiver.next().await.unwrap();
+                responses_vec[index] = Some(response);
+            }
+        }
+
+        responses_vec
+            .into_iter()
+            .map(|response| response.unwrap())
+            .collect()
     }
 }
 
@@ -71,20 +117,14 @@ fn get_primary_key(hash_key: &str, sort_key: &Value) -> String {
     primary_key
 }
 
-pub type CommandSender = mpsc::Sender<Command>;
-pub type CommandReceiver = mpsc::Receiver<Command>;
-
-pub type ResponseSender = mpsc::Sender<Response>;
-pub type ResponseReceiver = mpsc::Receiver<Response>;
-
 fn run_storage_threads(num_of_threads: usize) -> (Vec<CommandSender>, Vec<ResponseReceiver>) {
     let mut senders = Vec::with_capacity(num_of_threads);
     let mut receivers = Vec::with_capacity(num_of_threads);
     for _ in 0..num_of_threads {
-        let (command_sender, mut command_receiver) = mpsc::channel(64);
+        let (command_sender, mut command_receiver) = mpsc::unbounded();
         senders.push(command_sender);
 
-        let (response_sender, response_receiver) = mpsc::channel(64);
+        let (response_sender, response_receiver) = mpsc::unbounded();
         receivers.push(response_receiver);
 
         thread::spawn(move || {

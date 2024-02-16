@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+
+message Value {
+    ValueType type = 1;
+    bytes data = 2;
+}
+
+enum ValueType {
+    VALUE_TYPE_UNSPECIFIED = 0;
+    VALUE_TYPE_VARCHAR = 1;
+    VALUE_TYPE_INT16 = 2;
+    VALUE_TYPE_INT32 = 3;
+    VALUE_TYPE_INT64 = 4;
+    VALUE_TYPE_UNSIGNED32 = 5;
+    VALUE_TYPE_UNSIGNED64 = 6;
+    VALUE_TYPE_FLOAT32 = 7;
+    VALUE_TYPE_FLOAT64 = 8;
+    VALUE_TYPE_DECIMAL = 9;
+    VALUE_TYPE_DATETIME = 10;
+    VALUE_TYPE_BOOLEAN = 11;
+    VALUE_TYPE_NULL = 12;
+}

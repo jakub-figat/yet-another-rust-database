@@ -66,7 +66,6 @@ impl GetSize for Row {
 #[derive(Clone, Debug)]
 pub enum Value {
     Varchar(String, usize),
-    Text(String),
     Int16(i16),
     Int32(i32),
     Int64(i64),
@@ -84,7 +83,6 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
             Varchar(val, _) => val.clone(),
-            Text(val) => val.clone(),
             Int16(val) => val.to_string(),
             Int32(val) => val.to_string(),
             Int64(val) => val.to_string(),
@@ -105,7 +103,6 @@ impl GetSize for Value {
     fn get_size(&self) -> usize {
         match self {
             Varchar(val, _) => val.get_size(),
-            Text(val) => val.get_size(),
             Int16(val) => val.get_size(),
             Int32(val) => val.get_size(),
             Int64(val) => val.get_size(),

@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+import "common.proto";
+
+
+message Response {
+    ResponseType type = 1;
+    bytes data = 2;
+}
+
+enum ResponseType {
+    RESPONSE_TYPE_UNSPECIFIED = 0;
+    RESPONSE_TYPE_GET = 1;
+    RESPONSE_TYPE_INSERT = 2;
+    RESPONSE_TYPE_DELETE = 3;
+}
+
+message GetResponse {
+    string hash_key = 1;
+    Value sort_key = 2;
+    repeated Value values = 3;
+}
+
+message InsertResponse {
+    bool okay = 1;
+}
+
+message Delete {
+    bool okay = 1;
+}

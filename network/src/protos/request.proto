@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+import "common.proto";
+
+message Request {
+    RequestType type = 1;
+    bytes data = 2;
+}
+
+enum RequestType {
+    REQUEST_TYPE_UNSPECIFIED = 0;
+    REQUEST_TYPE_GET = 1;
+    REQUEST_TYPE_INSERT = 2;
+    REQUEST_TYPE_DELETE = 3;
+}
+
+message GetRequest {
+    string hash_key = 1;
+    Value sort_key = 2;
+}
+
+message InsertRequest {
+    string hash_key = 1;
+    Value sort_key = 2;
+    repeated Value values = 3;
+}
+
+message DeleteRequest {
+    string hash_key = 1;
+    Value sort_key = 2;
+}

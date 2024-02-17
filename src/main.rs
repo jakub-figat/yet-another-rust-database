@@ -1,7 +1,6 @@
 use monoio::FusionDriver;
+use network::start_tcp_server;
 use routing::Command::*;
-use routing::ThreadRouter;
-use std::thread::available_parallelism;
 use storage::Value::*;
 
 fn main() {
@@ -12,16 +11,7 @@ fn main() {
 }
 
 async fn run() {
-    let num_of_threads = available_parallelism().unwrap().get() - 1;
-    let mut thread_router = ThreadRouter::new(num_of_threads);
-    let insert_nums: Vec<_> = (1..=100).collect();
-
-    let commands: Vec<_> = insert_nums
-        .iter()
-        .map(|&num| Insert(num.to_string(), Unsigned64(num), vec![]))
-        .collect();
-
-    let _ = thread_router.send_in_batches(commands).await;
+    start_tcp_server().await
 }
 
 // skiplist expected times

@@ -379,8 +379,12 @@ dependencies = [
 name = "network"
 version = "0.1.0"
 dependencies = [
+ "futures",
+ "monoio",
  "protobuf",
  "protobuf-codegen",
+ "routing",
+ "storage",
 ]
 
 [[package]]

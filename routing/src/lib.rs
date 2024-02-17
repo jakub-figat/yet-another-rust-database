@@ -1,5 +1,6 @@
 use crate::Command::{Delete, Get, Insert};
 use futures::channel::mpsc;
+use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
 use monoio::FusionDriver;
 use murmur3::murmur3_32;
@@ -17,39 +18,43 @@ pub type ResponseSender = mpsc::UnboundedSender<Response>;
 pub type ResponseReceiver = mpsc::UnboundedReceiver<Response>;
 
 pub struct ThreadRouter {
-    senders: Vec<CommandSender>,
-    receivers: Vec<ResponseReceiver>,
+    channels: Vec<Mutex<ThreadChannel>>,
     num_of_threads: usize,
+}
+
+struct ThreadChannel {
+    sender: CommandSender,
+    receiver: ResponseReceiver,
 }
 
 impl ThreadRouter {
     pub fn new(num_of_threads: usize) -> ThreadRouter {
-        let (senders, receivers) = run_storage_threads(num_of_threads);
+        let channels = run_storage_threads(num_of_threads);
         ThreadRouter {
-            senders,
-            receivers,
+            channels,
             num_of_threads,
         }
     }
 
-    pub async fn send_command(&mut self, command: Command) -> Option<Response> {
-        let primary_key = command.primary_key();
-        let hash = murmur3_32(&mut Cursor::new(&primary_key), MURMUR3_SEED).unwrap();
+    pub async fn send_command(&self, command: Command) -> Option<Response> {
+        let hash_key = command.hash_key();
+        let hash = murmur3_32(&mut Cursor::new(&hash_key), MURMUR3_SEED).unwrap();
         let partition = (hash % (self.num_of_threads as u32)) as usize;
-        let mut sender = self.senders[partition].clone();
-        let receiver = &mut self.receivers[partition];
-        let _ = sender.send(command).await;
-        receiver.next().await
+        // let mut sender = self.senders[partition].clone();
+        // let receiver = &mut self.receivers[partition];
+        let mut channel = self.channels[partition].lock().await;
+        let _ = channel.sender.send(command).await;
+        channel.receiver.next().await
     }
 
-    pub async fn send_in_batches(&mut self, commands: Vec<Command>) -> Vec<Response> {
+    pub async fn send_in_batches(&self, commands: Vec<Command>) -> Vec<Response> {
         let mut batches: Vec<_> = (0..self.num_of_threads).map(|_| Vec::new()).collect();
         let mut responses_vec: Vec<Option<Response>> = (0..commands.len()).map(|_| None).collect();
         let mut response_index = 0usize;
 
         for command in commands {
-            let primary_key = command.primary_key();
-            let hash = murmur3_32(&mut Cursor::new(&primary_key), MURMUR3_SEED).unwrap();
+            let hash_key = command.hash_key();
+            let hash = murmur3_32(&mut Cursor::new(&hash_key), MURMUR3_SEED).unwrap();
             let partition = (hash % (self.num_of_threads as u32)) as usize;
             batches[partition].push((response_index, command));
             response_index += 1;
@@ -61,18 +66,15 @@ impl ThreadRouter {
             .enumerate()
             .filter(|(_, batch)| !batch.is_empty())
         {
-            let mut sender = self.senders[partition].clone();
+            let mut channel = self.channels[partition].lock().await;
             for (response_index, command) in batch {
                 response_batches[partition].push(response_index);
-                sender.send(command).await.unwrap();
+                channel.sender.send(command).await.unwrap();
             }
-        }
 
-        for (partition, response_indexes) in response_batches.into_iter().enumerate() {
-            let receiver = &mut self.receivers[partition];
-            for index in response_indexes {
-                let response = receiver.next().await.unwrap();
-                responses_vec[index] = Some(response);
+            for response_index in &response_batches[partition] {
+                let response = channel.receiver.next().await.unwrap();
+                responses_vec[response_index.clone()] = Some(response);
             }
         }
 
@@ -91,11 +93,11 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn primary_key(&self) -> String {
+    pub fn hash_key(&self) -> String {
         match self {
-            Get(hash_key, sort_key) => get_primary_key(hash_key, sort_key),
-            Insert(hash_key, sort_key, _) => get_primary_key(hash_key, sort_key),
-            Delete(hash_key, sort_key) => get_primary_key(hash_key, sort_key),
+            Get(hash_key, _) => hash_key.clone(),
+            Insert(hash_key, _, _) => hash_key.clone(),
+            Delete(hash_key, _) => hash_key.clone(),
         }
     }
 }
@@ -107,25 +109,26 @@ pub enum Response {
     Delete(Option<Row>),
 }
 
-fn get_primary_key(hash_key: &str, sort_key: &Value) -> String {
-    let sort_key_string = sort_key.to_string();
-    let mut primary_key = String::with_capacity(hash_key.len() + sort_key_string.len() + 1);
+// fn get_primary_key(hash_key: &str, sort_key: &Value) -> String {
+//     let sort_key_string = sort_key.to_string();
+//     let mut primary_key = String::with_capacity(hash_key.len() + sort_key_string.len() + 1);
+//
+//     primary_key.push_str(&hash_key);
+//     primary_key.push_str(":");
+//     primary_key.push_str(&sort_key_string);
+//     primary_key
+// }
 
-    primary_key.push_str(&hash_key);
-    primary_key.push_str(":");
-    primary_key.push_str(&sort_key_string);
-    primary_key
-}
-
-fn run_storage_threads(num_of_threads: usize) -> (Vec<CommandSender>, Vec<ResponseReceiver>) {
-    let mut senders = Vec::with_capacity(num_of_threads);
-    let mut receivers = Vec::with_capacity(num_of_threads);
+fn run_storage_threads(num_of_threads: usize) -> Vec<Mutex<ThreadChannel>> {
+    let mut channels = Vec::with_capacity(num_of_threads);
     for _ in 0..num_of_threads {
         let (command_sender, mut command_receiver) = mpsc::unbounded();
-        senders.push(command_sender);
 
         let (response_sender, response_receiver) = mpsc::unbounded();
-        receivers.push(response_receiver);
+        channels.push(Mutex::new(ThreadChannel {
+            sender: command_sender,
+            receiver: response_receiver,
+        }));
 
         thread::spawn(move || {
             let mut response_sender = response_sender.clone();
@@ -155,5 +158,5 @@ fn run_storage_threads(num_of_threads: usize) -> (Vec<CommandSender>, Vec<Respon
         });
     }
 
-    (senders, receivers)
+    channels
 }

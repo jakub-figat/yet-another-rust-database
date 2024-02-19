@@ -1,4 +1,4 @@
-workspace = { members = [ "network", "routing","storage"] }
+workspace = { members = [ "server", "storage"] }
 [package]
 name = "yet-another-rust-database"
 version = "0.1.0"
@@ -8,8 +8,7 @@ edition = "2021"
 
 [dependencies]
 storage = { path = "storage" }
-routing = { path = "routing" }
-network = { path = "network" }
+server = { path = "server" }
 rand = "0.8.5"
 monoio = { version = "0.2.1", features = ["iouring", "sync"] }
 futures = "0.3.30"

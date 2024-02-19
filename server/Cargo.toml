@@ -1,13 +1,13 @@
 [package]
-name = "network"
+name = "server"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 storage = { path = "../storage" }
-routing = { path = "../routing" }
 monoio = { version = "0.2.1", features = ["iouring", "sync"] }
 protobuf = "3.3.0"
+murmur3 = "0.5.2"
 futures = "0.3.30"
 
 [build-dependencies]

@@ -1,17 +1,9 @@
-use monoio::FusionDriver;
-use network::start_tcp_server;
-use routing::Command::*;
-use storage::Value::*;
+use server::run_listener_threads;
+use std::thread::available_parallelism;
 
 fn main() {
-    let mut main_runtime = monoio::RuntimeBuilder::<FusionDriver>::new()
-        .build()
-        .unwrap();
-    main_runtime.block_on(run());
-}
-
-async fn run() {
-    start_tcp_server().await
+    let num_of_threads = available_parallelism().unwrap().get();
+    run_listener_threads(num_of_threads);
 }
 
 // skiplist expected times

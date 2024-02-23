@@ -28,11 +28,8 @@ const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_3_3_0;
 // @@protoc_insertion_point(message:Value)
 #[derive(PartialEq,Clone,Default,Debug)]
 pub struct Value {
-    // message fields
-    // @@protoc_insertion_point(field:Value.type)
-    pub type_: ::protobuf::EnumOrUnknown<ValueType>,
-    // @@protoc_insertion_point(field:Value.data)
-    pub data: ::std::vec::Vec<u8>,
+    // message oneof groups
+    pub data: ::std::option::Option<value::Data>,
     // special fields
     // @@protoc_insertion_point(special_field:Value.special_fields)
     pub special_fields: ::protobuf::SpecialFields,
@@ -49,19 +46,447 @@ impl Value {
         ::std::default::Default::default()
     }
 
+    // string varchar = 1;
+
+    pub fn varchar(&self) -> &str {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Varchar(ref v)) => v,
+            _ => "",
+        }
+    }
+
+    pub fn clear_varchar(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_varchar(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Varchar(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_varchar(&mut self, v: ::std::string::String) {
+        self.data = ::std::option::Option::Some(value::Data::Varchar(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_varchar(&mut self) -> &mut ::std::string::String {
+        if let ::std::option::Option::Some(value::Data::Varchar(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(value::Data::Varchar(::std::string::String::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(value::Data::Varchar(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_varchar(&mut self) -> ::std::string::String {
+        if self.has_varchar() {
+            match self.data.take() {
+                ::std::option::Option::Some(value::Data::Varchar(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            ::std::string::String::new()
+        }
+    }
+
+    // int32 int32 = 2;
+
+    pub fn int32(&self) -> i32 {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Int32(v)) => v,
+            _ => 0,
+        }
+    }
+
+    pub fn clear_int32(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_int32(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Int32(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_int32(&mut self, v: i32) {
+        self.data = ::std::option::Option::Some(value::Data::Int32(v))
+    }
+
+    // int64 int64 = 3;
+
+    pub fn int64(&self) -> i64 {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Int64(v)) => v,
+            _ => 0,
+        }
+    }
+
+    pub fn clear_int64(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_int64(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Int64(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_int64(&mut self, v: i64) {
+        self.data = ::std::option::Option::Some(value::Data::Int64(v))
+    }
+
+    // uint32 unsigned32 = 4;
+
+    pub fn unsigned32(&self) -> u32 {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Unsigned32(v)) => v,
+            _ => 0,
+        }
+    }
+
+    pub fn clear_unsigned32(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_unsigned32(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Unsigned32(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_unsigned32(&mut self, v: u32) {
+        self.data = ::std::option::Option::Some(value::Data::Unsigned32(v))
+    }
+
+    // uint64 unsigned64 = 5;
+
+    pub fn unsigned64(&self) -> u64 {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Unsigned64(v)) => v,
+            _ => 0,
+        }
+    }
+
+    pub fn clear_unsigned64(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_unsigned64(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Unsigned64(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_unsigned64(&mut self, v: u64) {
+        self.data = ::std::option::Option::Some(value::Data::Unsigned64(v))
+    }
+
+    // float float32 = 6;
+
+    pub fn float32(&self) -> f32 {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Float32(v)) => v,
+            _ => 0.,
+        }
+    }
+
+    pub fn clear_float32(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_float32(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Float32(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_float32(&mut self, v: f32) {
+        self.data = ::std::option::Option::Some(value::Data::Float32(v))
+    }
+
+    // double float64 = 7;
+
+    pub fn float64(&self) -> f64 {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Float64(v)) => v,
+            _ => 0.,
+        }
+    }
+
+    pub fn clear_float64(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_float64(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Float64(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_float64(&mut self, v: f64) {
+        self.data = ::std::option::Option::Some(value::Data::Float64(v))
+    }
+
+    // bool boolean = 8;
+
+    pub fn boolean(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Boolean(v)) => v,
+            _ => false,
+        }
+    }
+
+    pub fn clear_boolean(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_boolean(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Boolean(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_boolean(&mut self, v: bool) {
+        self.data = ::std::option::Option::Some(value::Data::Boolean(v))
+    }
+
+    // string decimal = 9;
+
+    pub fn decimal(&self) -> &str {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Decimal(ref v)) => v,
+            _ => "",
+        }
+    }
+
+    pub fn clear_decimal(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_decimal(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Decimal(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_decimal(&mut self, v: ::std::string::String) {
+        self.data = ::std::option::Option::Some(value::Data::Decimal(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_decimal(&mut self) -> &mut ::std::string::String {
+        if let ::std::option::Option::Some(value::Data::Decimal(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(value::Data::Decimal(::std::string::String::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(value::Data::Decimal(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_decimal(&mut self) -> ::std::string::String {
+        if self.has_decimal() {
+            match self.data.take() {
+                ::std::option::Option::Some(value::Data::Decimal(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            ::std::string::String::new()
+        }
+    }
+
+    // string datetime = 10;
+
+    pub fn datetime(&self) -> &str {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Datetime(ref v)) => v,
+            _ => "",
+        }
+    }
+
+    pub fn clear_datetime(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_datetime(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Datetime(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_datetime(&mut self, v: ::std::string::String) {
+        self.data = ::std::option::Option::Some(value::Data::Datetime(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_datetime(&mut self) -> &mut ::std::string::String {
+        if let ::std::option::Option::Some(value::Data::Datetime(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(value::Data::Datetime(::std::string::String::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(value::Data::Datetime(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_datetime(&mut self) -> ::std::string::String {
+        if self.has_datetime() {
+            match self.data.take() {
+                ::std::option::Option::Some(value::Data::Datetime(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            ::std::string::String::new()
+        }
+    }
+
+    // bytes null = 11;
+
+    pub fn null(&self) -> &[u8] {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Null(ref v)) => v,
+            _ => &[],
+        }
+    }
+
+    pub fn clear_null(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_null(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(value::Data::Null(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_null(&mut self, v: ::std::vec::Vec<u8>) {
+        self.data = ::std::option::Option::Some(value::Data::Null(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_null(&mut self) -> &mut ::std::vec::Vec<u8> {
+        if let ::std::option::Option::Some(value::Data::Null(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(value::Data::Null(::std::vec::Vec::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(value::Data::Null(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_null(&mut self) -> ::std::vec::Vec<u8> {
+        if self.has_null() {
+            match self.data.take() {
+                ::std::option::Option::Some(value::Data::Null(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            ::std::vec::Vec::new()
+        }
+    }
+
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(2);
-        let mut oneofs = ::std::vec::Vec::with_capacity(0);
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "type",
-            |m: &Value| { &m.type_ },
-            |m: &mut Value| { &mut m.type_ },
+        let mut fields = ::std::vec::Vec::with_capacity(11);
+        let mut oneofs = ::std::vec::Vec::with_capacity(1);
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
+            "varchar",
+            Value::has_varchar,
+            Value::varchar,
+            Value::set_varchar,
         ));
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "data",
-            |m: &Value| { &m.data },
-            |m: &mut Value| { &mut m.data },
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_copy_has_get_set_simpler_accessors::<_, _>(
+            "int32",
+            Value::has_int32,
+            Value::int32,
+            Value::set_int32,
         ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_copy_has_get_set_simpler_accessors::<_, _>(
+            "int64",
+            Value::has_int64,
+            Value::int64,
+            Value::set_int64,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_copy_has_get_set_simpler_accessors::<_, _>(
+            "unsigned32",
+            Value::has_unsigned32,
+            Value::unsigned32,
+            Value::set_unsigned32,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_copy_has_get_set_simpler_accessors::<_, _>(
+            "unsigned64",
+            Value::has_unsigned64,
+            Value::unsigned64,
+            Value::set_unsigned64,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_copy_has_get_set_simpler_accessors::<_, _>(
+            "float32",
+            Value::has_float32,
+            Value::float32,
+            Value::set_float32,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_copy_has_get_set_simpler_accessors::<_, _>(
+            "float64",
+            Value::has_float64,
+            Value::float64,
+            Value::set_float64,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_copy_has_get_set_simpler_accessors::<_, _>(
+            "boolean",
+            Value::has_boolean,
+            Value::boolean,
+            Value::set_boolean,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
+            "decimal",
+            Value::has_decimal,
+            Value::decimal,
+            Value::set_decimal,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
+            "datetime",
+            Value::has_datetime,
+            Value::datetime,
+            Value::set_datetime,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
+            "null",
+            Value::has_null,
+            Value::null,
+            Value::set_null,
+        ));
+        oneofs.push(value::Data::generated_oneof_descriptor_data());
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<Value>(
             "Value",
             fields,
@@ -80,11 +505,38 @@ impl ::protobuf::Message for Value {
     fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
         while let Some(tag) = is.read_raw_tag_or_eof()? {
             match tag {
-                8 => {
-                    self.type_ = is.read_enum_or_unknown()?;
+                10 => {
+                    self.data = ::std::option::Option::Some(value::Data::Varchar(is.read_string()?));
                 },
-                18 => {
-                    self.data = is.read_bytes()?;
+                16 => {
+                    self.data = ::std::option::Option::Some(value::Data::Int32(is.read_int32()?));
+                },
+                24 => {
+                    self.data = ::std::option::Option::Some(value::Data::Int64(is.read_int64()?));
+                },
+                32 => {
+                    self.data = ::std::option::Option::Some(value::Data::Unsigned32(is.read_uint32()?));
+                },
+                40 => {
+                    self.data = ::std::option::Option::Some(value::Data::Unsigned64(is.read_uint64()?));
+                },
+                53 => {
+                    self.data = ::std::option::Option::Some(value::Data::Float32(is.read_float()?));
+                },
+                57 => {
+                    self.data = ::std::option::Option::Some(value::Data::Float64(is.read_double()?));
+                },
+                64 => {
+                    self.data = ::std::option::Option::Some(value::Data::Boolean(is.read_bool()?));
+                },
+                74 => {
+                    self.data = ::std::option::Option::Some(value::Data::Decimal(is.read_string()?));
+                },
+                82 => {
+                    self.data = ::std::option::Option::Some(value::Data::Datetime(is.read_string()?));
+                },
+                90 => {
+                    self.data = ::std::option::Option::Some(value::Data::Null(is.read_bytes()?));
                 },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
@@ -98,11 +550,42 @@ impl ::protobuf::Message for Value {
     #[allow(unused_variables)]
     fn compute_size(&self) -> u64 {
         let mut my_size = 0;
-        if self.type_ != ::protobuf::EnumOrUnknown::new(ValueType::VALUE_TYPE_UNSPECIFIED) {
-            my_size += ::protobuf::rt::int32_size(1, self.type_.value());
-        }
-        if !self.data.is_empty() {
-            my_size += ::protobuf::rt::bytes_size(2, &self.data);
+        if let ::std::option::Option::Some(ref v) = self.data {
+            match v {
+                &value::Data::Varchar(ref v) => {
+                    my_size += ::protobuf::rt::string_size(1, &v);
+                },
+                &value::Data::Int32(v) => {
+                    my_size += ::protobuf::rt::int32_size(2, v);
+                },
+                &value::Data::Int64(v) => {
+                    my_size += ::protobuf::rt::int64_size(3, v);
+                },
+                &value::Data::Unsigned32(v) => {
+                    my_size += ::protobuf::rt::uint32_size(4, v);
+                },
+                &value::Data::Unsigned64(v) => {
+                    my_size += ::protobuf::rt::uint64_size(5, v);
+                },
+                &value::Data::Float32(v) => {
+                    my_size += 1 + 4;
+                },
+                &value::Data::Float64(v) => {
+                    my_size += 1 + 8;
+                },
+                &value::Data::Boolean(v) => {
+                    my_size += 1 + 1;
+                },
+                &value::Data::Decimal(ref v) => {
+                    my_size += ::protobuf::rt::string_size(9, &v);
+                },
+                &value::Data::Datetime(ref v) => {
+                    my_size += ::protobuf::rt::string_size(10, &v);
+                },
+                &value::Data::Null(ref v) => {
+                    my_size += ::protobuf::rt::bytes_size(11, &v);
+                },
+            };
         }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
         self.special_fields.cached_size().set(my_size as u32);
@@ -110,11 +593,42 @@ impl ::protobuf::Message for Value {
     }
 
     fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
-        if self.type_ != ::protobuf::EnumOrUnknown::new(ValueType::VALUE_TYPE_UNSPECIFIED) {
-            os.write_enum(1, ::protobuf::EnumOrUnknown::value(&self.type_))?;
-        }
-        if !self.data.is_empty() {
-            os.write_bytes(2, &self.data)?;
+        if let ::std::option::Option::Some(ref v) = self.data {
+            match v {
+                &value::Data::Varchar(ref v) => {
+                    os.write_string(1, v)?;
+                },
+                &value::Data::Int32(v) => {
+                    os.write_int32(2, v)?;
+                },
+                &value::Data::Int64(v) => {
+                    os.write_int64(3, v)?;
+                },
+                &value::Data::Unsigned32(v) => {
+                    os.write_uint32(4, v)?;
+                },
+                &value::Data::Unsigned64(v) => {
+                    os.write_uint64(5, v)?;
+                },
+                &value::Data::Float32(v) => {
+                    os.write_float(6, v)?;
+                },
+                &value::Data::Float64(v) => {
+                    os.write_double(7, v)?;
+                },
+                &value::Data::Boolean(v) => {
+                    os.write_bool(8, v)?;
+                },
+                &value::Data::Decimal(ref v) => {
+                    os.write_string(9, v)?;
+                },
+                &value::Data::Datetime(ref v) => {
+                    os.write_string(10, v)?;
+                },
+                &value::Data::Null(ref v) => {
+                    os.write_bytes(11, v)?;
+                },
+            };
         }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
         ::std::result::Result::Ok(())
@@ -133,15 +647,23 @@ impl ::protobuf::Message for Value {
     }
 
     fn clear(&mut self) {
-        self.type_ = ::protobuf::EnumOrUnknown::new(ValueType::VALUE_TYPE_UNSPECIFIED);
-        self.data.clear();
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
         self.special_fields.clear();
     }
 
     fn default_instance() -> &'static Value {
         static instance: Value = Value {
-            type_: ::protobuf::EnumOrUnknown::from_i32(0),
-            data: ::std::vec::Vec::new(),
+            data: ::std::option::Option::None,
             special_fields: ::protobuf::SpecialFields::new(),
         };
         &instance
@@ -165,134 +687,65 @@ impl ::protobuf::reflect::ProtobufValue for Value {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
-#[derive(Clone,Copy,PartialEq,Eq,Debug,Hash)]
-// @@protoc_insertion_point(enum:ValueType)
-pub enum ValueType {
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_UNSPECIFIED)
-    VALUE_TYPE_UNSPECIFIED = 0,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_VARCHAR)
-    VALUE_TYPE_VARCHAR = 1,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_INT16)
-    VALUE_TYPE_INT16 = 2,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_INT32)
-    VALUE_TYPE_INT32 = 3,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_INT64)
-    VALUE_TYPE_INT64 = 4,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_UNSIGNED32)
-    VALUE_TYPE_UNSIGNED32 = 5,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_UNSIGNED64)
-    VALUE_TYPE_UNSIGNED64 = 6,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_FLOAT32)
-    VALUE_TYPE_FLOAT32 = 7,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_FLOAT64)
-    VALUE_TYPE_FLOAT64 = 8,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_DECIMAL)
-    VALUE_TYPE_DECIMAL = 9,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_DATETIME)
-    VALUE_TYPE_DATETIME = 10,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_BOOLEAN)
-    VALUE_TYPE_BOOLEAN = 11,
-    // @@protoc_insertion_point(enum_value:ValueType.VALUE_TYPE_NULL)
-    VALUE_TYPE_NULL = 12,
-}
+/// Nested message and enums of message `Value`
+pub mod value {
 
-impl ::protobuf::Enum for ValueType {
-    const NAME: &'static str = "ValueType";
-
-    fn value(&self) -> i32 {
-        *self as i32
+    #[derive(Clone,PartialEq,Debug)]
+    #[non_exhaustive]
+    // @@protoc_insertion_point(oneof:Value.data)
+    pub enum Data {
+        // @@protoc_insertion_point(oneof_field:Value.varchar)
+        Varchar(::std::string::String),
+        // @@protoc_insertion_point(oneof_field:Value.int32)
+        Int32(i32),
+        // @@protoc_insertion_point(oneof_field:Value.int64)
+        Int64(i64),
+        // @@protoc_insertion_point(oneof_field:Value.unsigned32)
+        Unsigned32(u32),
+        // @@protoc_insertion_point(oneof_field:Value.unsigned64)
+        Unsigned64(u64),
+        // @@protoc_insertion_point(oneof_field:Value.float32)
+        Float32(f32),
+        // @@protoc_insertion_point(oneof_field:Value.float64)
+        Float64(f64),
+        // @@protoc_insertion_point(oneof_field:Value.boolean)
+        Boolean(bool),
+        // @@protoc_insertion_point(oneof_field:Value.decimal)
+        Decimal(::std::string::String),
+        // @@protoc_insertion_point(oneof_field:Value.datetime)
+        Datetime(::std::string::String),
+        // @@protoc_insertion_point(oneof_field:Value.null)
+        Null(::std::vec::Vec<u8>),
     }
 
-    fn from_i32(value: i32) -> ::std::option::Option<ValueType> {
-        match value {
-            0 => ::std::option::Option::Some(ValueType::VALUE_TYPE_UNSPECIFIED),
-            1 => ::std::option::Option::Some(ValueType::VALUE_TYPE_VARCHAR),
-            2 => ::std::option::Option::Some(ValueType::VALUE_TYPE_INT16),
-            3 => ::std::option::Option::Some(ValueType::VALUE_TYPE_INT32),
-            4 => ::std::option::Option::Some(ValueType::VALUE_TYPE_INT64),
-            5 => ::std::option::Option::Some(ValueType::VALUE_TYPE_UNSIGNED32),
-            6 => ::std::option::Option::Some(ValueType::VALUE_TYPE_UNSIGNED64),
-            7 => ::std::option::Option::Some(ValueType::VALUE_TYPE_FLOAT32),
-            8 => ::std::option::Option::Some(ValueType::VALUE_TYPE_FLOAT64),
-            9 => ::std::option::Option::Some(ValueType::VALUE_TYPE_DECIMAL),
-            10 => ::std::option::Option::Some(ValueType::VALUE_TYPE_DATETIME),
-            11 => ::std::option::Option::Some(ValueType::VALUE_TYPE_BOOLEAN),
-            12 => ::std::option::Option::Some(ValueType::VALUE_TYPE_NULL),
-            _ => ::std::option::Option::None
+    impl ::protobuf::Oneof for Data {
+    }
+
+    impl ::protobuf::OneofFull for Data {
+        fn descriptor() -> ::protobuf::reflect::OneofDescriptor {
+            static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::OneofDescriptor> = ::protobuf::rt::Lazy::new();
+            descriptor.get(|| <super::Value as ::protobuf::MessageFull>::descriptor().oneof_by_name("data").unwrap()).clone()
         }
     }
 
-    fn from_str(str: &str) -> ::std::option::Option<ValueType> {
-        match str {
-            "VALUE_TYPE_UNSPECIFIED" => ::std::option::Option::Some(ValueType::VALUE_TYPE_UNSPECIFIED),
-            "VALUE_TYPE_VARCHAR" => ::std::option::Option::Some(ValueType::VALUE_TYPE_VARCHAR),
-            "VALUE_TYPE_INT16" => ::std::option::Option::Some(ValueType::VALUE_TYPE_INT16),
-            "VALUE_TYPE_INT32" => ::std::option::Option::Some(ValueType::VALUE_TYPE_INT32),
-            "VALUE_TYPE_INT64" => ::std::option::Option::Some(ValueType::VALUE_TYPE_INT64),
-            "VALUE_TYPE_UNSIGNED32" => ::std::option::Option::Some(ValueType::VALUE_TYPE_UNSIGNED32),
-            "VALUE_TYPE_UNSIGNED64" => ::std::option::Option::Some(ValueType::VALUE_TYPE_UNSIGNED64),
-            "VALUE_TYPE_FLOAT32" => ::std::option::Option::Some(ValueType::VALUE_TYPE_FLOAT32),
-            "VALUE_TYPE_FLOAT64" => ::std::option::Option::Some(ValueType::VALUE_TYPE_FLOAT64),
-            "VALUE_TYPE_DECIMAL" => ::std::option::Option::Some(ValueType::VALUE_TYPE_DECIMAL),
-            "VALUE_TYPE_DATETIME" => ::std::option::Option::Some(ValueType::VALUE_TYPE_DATETIME),
-            "VALUE_TYPE_BOOLEAN" => ::std::option::Option::Some(ValueType::VALUE_TYPE_BOOLEAN),
-            "VALUE_TYPE_NULL" => ::std::option::Option::Some(ValueType::VALUE_TYPE_NULL),
-            _ => ::std::option::Option::None
+    impl Data {
+        pub(in super) fn generated_oneof_descriptor_data() -> ::protobuf::reflect::GeneratedOneofDescriptorData {
+            ::protobuf::reflect::GeneratedOneofDescriptorData::new::<Data>("data")
         }
-    }
-
-    const VALUES: &'static [ValueType] = &[
-        ValueType::VALUE_TYPE_UNSPECIFIED,
-        ValueType::VALUE_TYPE_VARCHAR,
-        ValueType::VALUE_TYPE_INT16,
-        ValueType::VALUE_TYPE_INT32,
-        ValueType::VALUE_TYPE_INT64,
-        ValueType::VALUE_TYPE_UNSIGNED32,
-        ValueType::VALUE_TYPE_UNSIGNED64,
-        ValueType::VALUE_TYPE_FLOAT32,
-        ValueType::VALUE_TYPE_FLOAT64,
-        ValueType::VALUE_TYPE_DECIMAL,
-        ValueType::VALUE_TYPE_DATETIME,
-        ValueType::VALUE_TYPE_BOOLEAN,
-        ValueType::VALUE_TYPE_NULL,
-    ];
-}
-
-impl ::protobuf::EnumFull for ValueType {
-    fn enum_descriptor() -> ::protobuf::reflect::EnumDescriptor {
-        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::EnumDescriptor> = ::protobuf::rt::Lazy::new();
-        descriptor.get(|| file_descriptor().enum_by_package_relative_name("ValueType").unwrap()).clone()
-    }
-
-    fn descriptor(&self) -> ::protobuf::reflect::EnumValueDescriptor {
-        let index = *self as usize;
-        Self::enum_descriptor().value_by_index(index)
-    }
-}
-
-impl ::std::default::Default for ValueType {
-    fn default() -> Self {
-        ValueType::VALUE_TYPE_UNSPECIFIED
-    }
-}
-
-impl ValueType {
-    fn generated_enum_descriptor_data() -> ::protobuf::reflect::GeneratedEnumDescriptorData {
-        ::protobuf::reflect::GeneratedEnumDescriptorData::new::<ValueType>("ValueType")
     }
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x0ccommon.proto\";\n\x05Value\x12\x1e\n\x04type\x18\x01\x20\x01(\x0e2\
-    \n.ValueTypeR\x04type\x12\x12\n\x04data\x18\x02\x20\x01(\x0cR\x04data*\
-    \xc5\x02\n\tValueType\x12\x1a\n\x16VALUE_TYPE_UNSPECIFIED\x10\0\x12\x16\
-    \n\x12VALUE_TYPE_VARCHAR\x10\x01\x12\x14\n\x10VALUE_TYPE_INT16\x10\x02\
-    \x12\x14\n\x10VALUE_TYPE_INT32\x10\x03\x12\x14\n\x10VALUE_TYPE_INT64\x10\
-    \x04\x12\x19\n\x15VALUE_TYPE_UNSIGNED32\x10\x05\x12\x19\n\x15VALUE_TYPE_\
-    UNSIGNED64\x10\x06\x12\x16\n\x12VALUE_TYPE_FLOAT32\x10\x07\x12\x16\n\x12\
-    VALUE_TYPE_FLOAT64\x10\x08\x12\x16\n\x12VALUE_TYPE_DECIMAL\x10\t\x12\x17\
-    \n\x13VALUE_TYPE_DATETIME\x10\n\x12\x16\n\x12VALUE_TYPE_BOOLEAN\x10\x0b\
-    \x12\x13\n\x0fVALUE_TYPE_NULL\x10\x0cb\x06proto3\
+    \n\x0ccommon.proto\"\xc3\x02\n\x05Value\x12\x1a\n\x07varchar\x18\x01\x20\
+    \x01(\tH\0R\x07varchar\x12\x16\n\x05int32\x18\x02\x20\x01(\x05H\0R\x05in\
+    t32\x12\x16\n\x05int64\x18\x03\x20\x01(\x03H\0R\x05int64\x12\x20\n\nunsi\
+    gned32\x18\x04\x20\x01(\rH\0R\nunsigned32\x12\x20\n\nunsigned64\x18\x05\
+    \x20\x01(\x04H\0R\nunsigned64\x12\x1a\n\x07float32\x18\x06\x20\x01(\x02H\
+    \0R\x07float32\x12\x1a\n\x07float64\x18\x07\x20\x01(\x01H\0R\x07float64\
+    \x12\x1a\n\x07boolean\x18\x08\x20\x01(\x08H\0R\x07boolean\x12\x1a\n\x07d\
+    ecimal\x18\t\x20\x01(\tH\0R\x07decimal\x12\x1c\n\x08datetime\x18\n\x20\
+    \x01(\tH\0R\x08datetime\x12\x14\n\x04null\x18\x0b\x20\x01(\x0cH\0R\x04nu\
+    llB\x06\n\x04datab\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -312,8 +765,7 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
             let mut deps = ::std::vec::Vec::with_capacity(0);
             let mut messages = ::std::vec::Vec::with_capacity(1);
             messages.push(Value::generated_message_descriptor_data());
-            let mut enums = ::std::vec::Vec::with_capacity(1);
-            enums.push(ValueType::generated_enum_descriptor_data());
+            let mut enums = ::std::vec::Vec::with_capacity(0);
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(
                 file_descriptor_proto(),
                 deps,

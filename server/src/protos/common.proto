@@ -2,22 +2,17 @@ syntax = "proto3";
 
 
 message Value {
-    ValueType type = 1;
-    bytes data = 2;
-}
-
-enum ValueType {
-    VALUE_TYPE_UNSPECIFIED = 0;
-    VALUE_TYPE_VARCHAR = 1;
-    VALUE_TYPE_INT16 = 2;
-    VALUE_TYPE_INT32 = 3;
-    VALUE_TYPE_INT64 = 4;
-    VALUE_TYPE_UNSIGNED32 = 5;
-    VALUE_TYPE_UNSIGNED64 = 6;
-    VALUE_TYPE_FLOAT32 = 7;
-    VALUE_TYPE_FLOAT64 = 8;
-    VALUE_TYPE_DECIMAL = 9;
-    VALUE_TYPE_DATETIME = 10;
-    VALUE_TYPE_BOOLEAN = 11;
-    VALUE_TYPE_NULL = 12;
+    oneof data {
+        string varchar = 1;
+        int32 int32 = 2;
+        int64 int64 = 3;
+        uint32 unsigned32 = 4;
+        uint64 unsigned64 = 5;
+        float float32 = 6;
+        double float64 = 7;
+        bool boolean = 8;
+        string decimal = 9;
+        string datetime = 10;
+        bytes null = 11;
+    }
 }

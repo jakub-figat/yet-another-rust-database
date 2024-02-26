@@ -1,4 +1,4 @@
-workspace = { members = [ "protos", "server", "storage"] }
+workspace = { members = [ "client", "protos", "server", "storage"] }
 [package]
 name = "yet-another-rust-database"
 version = "0.1.0"
@@ -9,8 +9,18 @@ edition = "2021"
 [dependencies]
 storage = { path = "storage" }
 server = { path = "server" }
+client = { path = "client" }
 rand = "0.8.5"
 monoio = { version = "0.2.1", features = ["iouring", "sync"] }
 futures = "0.3.30"
 murmur3 = "0.5.2"
 protobuf = "3.3.0"
+
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"

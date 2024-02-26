@@ -24,6 +24,7 @@ pub struct ThreadChannel {
     pub receiver: ResponseReceiver,
 }
 
+#[derive(Debug)]
 pub enum ThreadCommand {
     Get(String, Value),
     Insert(String, Value, Vec<Value>),

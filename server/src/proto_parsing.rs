@@ -9,6 +9,7 @@ use storage::Value::{
     Varchar,
 };
 
+#[derive(Debug)]
 pub enum Request {
     Command(ThreadCommand),
     Batch(Vec<ThreadCommand>),
@@ -16,7 +17,7 @@ pub enum Request {
 
 pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String> {
     let request = ProtoRequest::parse_from_bytes(&buffer).map_err(|err| err.to_string());
-    buffer.truncate(0);
+    buffer.clear();
 
     let parsed_request = request?;
     let request_data = parsed_request
@@ -68,13 +69,13 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
                         let sort_key = parse_value_from_proto(delete.sort_key.unwrap());
                         Ok(ThreadCommand::Delete(delete.hash_key, sort_key))
                     }
-                    _ => panic!("Invalid batch item type")
+                    _ => panic!("Invalid batch item type"),
                 }?;
                 commands.push(command);
             }
             Ok(Request::Batch(commands))
         }
-        _ => panic!("Invalid proto request data type")
+        _ => panic!("Invalid proto request data type"),
     }
 }
 
@@ -91,7 +92,7 @@ fn parse_value_from_proto(value: ProtoValue) -> Value {
         ProtoValueData::Decimal(data) => Decimal(data, 1, 1), // TODO
         ProtoValueData::Datetime(data) => Datetime(data),     // TODO
         ProtoValueData::Null(_) => Null,
-        _ => panic!("Invalid proto value type")
+        _ => panic!("Invalid proto value type"),
     }
 }
 

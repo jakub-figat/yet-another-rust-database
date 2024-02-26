@@ -5,7 +5,7 @@ use crate::thread_channels::{
 };
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
-use monoio::io::AsyncWriteRentExt;
+use monoio::io::{AsyncReadRent, AsyncWriteRentExt};
 use monoio::net::TcpStream;
 use protobuf::Message;
 use protos::{BatchResponse, ProtoResponse, ProtoResponseData};
@@ -13,26 +13,34 @@ use std::sync::Arc;
 use storage::{Row, SkipList};
 
 pub async fn receive_from_tcp(
-    connection: TcpStream,
-    buffer: &mut Vec<u8>,
+    mut connection: TcpStream,
+    buffer: Vec<u8>,
     current_partition: usize,
     channels: Vec<Arc<Mutex<ThreadChannel>>>,
     memtable: Arc<Mutex<SkipList<Row>>>,
-) {
-    let request = parse_request_from_bytes(buffer);
+) -> Vec<u8> {
+    tracing::info!("Incoming request on thread {}", current_partition);
+    let (_, mut buffer) = connection.read(buffer).await;
+    let request = parse_request_from_bytes(&mut buffer);
     if let Err(error) = request {
+        tracing::warn!("Invalid request on thread {}", current_partition);
         let proto_response = client_error_to_proto_response(error);
         let bytes = proto_response.write_to_bytes().unwrap();
         write_to_tcp(connection, bytes).await;
-        return;
+        return buffer;
     }
 
     match request.unwrap() {
         Request::Command(command) => {
             let target_partition = get_command_target_partition(&command, channels.len());
-            let response = match target_partition != current_partition {
+            let response = match target_partition == current_partition {
                 true => handle_command(command, memtable.clone()).await,
                 false => {
+                    tracing::info!(
+                        "Sending from thread {} to thread {}",
+                        current_partition,
+                        target_partition
+                    );
                     let mut channel = channels[target_partition].lock().await;
                     channel.sender.send(command).await.unwrap();
                     channel.receiver.next().await.unwrap()
@@ -59,6 +67,8 @@ pub async fn receive_from_tcp(
             write_to_tcp(connection, proto_response.write_to_bytes().unwrap()).await;
         }
     };
+    tracing::info!("Request on thread {} handled", current_partition);
+    buffer
 }
 
 async fn write_to_tcp(mut connection: TcpStream, bytes: Vec<u8>) {

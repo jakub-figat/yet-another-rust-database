@@ -48,6 +48,8 @@ pub fn run_listener_threads(num_of_threads: usize) {
             runtime.block_on(thread_main(partition, inner_channel, channels));
         });
     }
+
+    loop {}
 }
 
 async fn thread_main(
@@ -59,12 +61,14 @@ async fn thread_main(
     let memtable = Arc::new(Mutex::new(SkipList::<Row>::default()));
 
     let tcp_listener = TcpListener::bind(format!("0.0.0.0:{}", TCP_PORT.to_string())).unwrap();
+    tracing::info!("Listening on port {} on thread {}", TCP_PORT, partition);
+
     let (mut response_sender, mut command_receiver) = inner_channel;
 
     loop {
         monoio::select! {
             Ok((connection, _)) = tcp_listener.accept() => {
-                receive_from_tcp(connection, &mut buffer, partition, channels.clone(), memtable.clone()).await
+                buffer = receive_from_tcp(connection, buffer, partition, channels.clone(), memtable.clone()).await;
             }
             Some(command) = command_receiver.next() => {
                 let response = handle_command(command, memtable.clone()).await;

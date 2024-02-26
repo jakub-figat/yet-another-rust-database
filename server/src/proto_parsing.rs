@@ -1,17 +1,20 @@
-use crate::listener::Command;
 use crate::protos::common::{value::Data as ValueData, Value as ProtoValue};
 use crate::protos::request::{
     batch_item::Item as BatchItem, request::Data as RequestData, Request as ProtoRequest,
 };
-use protobuf::Message;
+use crate::protos::response::{
+    response::Data as ProtoResponseData, ClientError, Response as ProtoResponse,
+};
+use crate::thread_channels::ThreadCommand;
+use protobuf::{Message, MessageField};
 use storage::Value::{
     self, Boolean, Datetime, Decimal, Float32, Float64, Int32, Int64, Null, Unsigned32, Unsigned64,
     Varchar,
 };
 
 pub enum Request {
-    Command(Command),
-    Batch(Vec<Command>),
+    Command(ThreadCommand),
+    Batch(Vec<ThreadCommand>),
 }
 
 pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String> {
@@ -25,7 +28,7 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
     match request_data {
         RequestData::Get(get) => {
             let sort_key = parse_value_from_proto(get.sort_key.unwrap());
-            Ok(Request::Command(Command::Get(get.hash_key, sort_key)))
+            Ok(Request::Command(ThreadCommand::Get(get.hash_key, sort_key)))
         }
         RequestData::Insert(insert) => {
             let sort_key = parse_value_from_proto(insert.sort_key.unwrap());
@@ -34,7 +37,7 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
                 .into_iter()
                 .map(|value| parse_value_from_proto(value))
                 .collect();
-            Ok(Request::Command(Command::Insert(
+            Ok(Request::Command(ThreadCommand::Insert(
                 insert.hash_key,
                 sort_key,
                 values,
@@ -42,7 +45,10 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
         }
         RequestData::Delete(delete) => {
             let sort_key = parse_value_from_proto(delete.sort_key.unwrap());
-            Ok(Request::Command(Command::Delete(delete.hash_key, sort_key)))
+            Ok(Request::Command(ThreadCommand::Delete(
+                delete.hash_key,
+                sort_key,
+            )))
         }
         RequestData::Batch(batch) => {
             let mut commands = Vec::with_capacity(batch.items.len());
@@ -50,7 +56,7 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
                 let command = match item.item.unwrap() {
                     BatchItem::Get(get) => {
                         let sort_key = parse_value_from_proto(get.sort_key.unwrap());
-                        Ok::<Command, String>(Command::Get(get.hash_key, sort_key))
+                        Ok::<ThreadCommand, String>(ThreadCommand::Get(get.hash_key, sort_key))
                     }
                     BatchItem::Insert(insert) => {
                         let sort_key = parse_value_from_proto(insert.sort_key.unwrap());
@@ -59,11 +65,11 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
                             .into_iter()
                             .map(|value| parse_value_from_proto(value))
                             .collect();
-                        Ok(Command::Insert(insert.hash_key, sort_key, values))
+                        Ok(ThreadCommand::Insert(insert.hash_key, sort_key, values))
                     }
                     BatchItem::Delete(delete) => {
                         let sort_key = parse_value_from_proto(delete.sort_key.unwrap());
-                        Ok(Command::Delete(delete.hash_key, sort_key))
+                        Ok(ThreadCommand::Delete(delete.hash_key, sort_key))
                     }
                 }?;
                 commands.push(command);
@@ -87,4 +93,38 @@ fn parse_value_from_proto(value: ProtoValue) -> Value {
         ValueData::Datetime(data) => Datetime(data),     // TODO
         ValueData::Null(_) => Null,
     }
+}
+
+pub fn parse_proto_from_value(value: Value) -> ProtoValue {
+    let proto_enum_value = match value {
+        Varchar(data, _) => ValueData::Varchar(data), // TODO
+        Int32(data) => ValueData::Int32(data),
+        Int64(data) => ValueData::Int64(data),
+        Unsigned32(data) => ValueData::Unsigned32(data),
+        Unsigned64(data) => ValueData::Unsigned64(data),
+        Float32(data) => ValueData::Float32(data),
+        Float64(data) => ValueData::Float64(data),
+        Boolean(data) => ValueData::Boolean(data),
+        Decimal(data, _, _) => ValueData::Decimal(data), // TODO
+        Datetime(data) => ValueData::Datetime(data),     // TODO
+        Null => ValueData::Null(vec![0u8; 0]),
+    };
+
+    let mut proto_value = ProtoValue::new();
+    proto_value.data = Some(proto_enum_value);
+    proto_value
+}
+
+pub fn parse_message_field_from_value(value: Value) -> MessageField<ProtoValue> {
+    let proto_value = parse_proto_from_value(value);
+    MessageField(Some(Box::new(proto_value)))
+}
+
+pub fn client_error_to_proto_response(error: String) -> ProtoResponse {
+    let mut client_response = ClientError::new();
+    client_response.detail = error;
+
+    let mut proto_response = ProtoResponse::new();
+    proto_response.data = Some(ProtoResponseData::ClientError(client_response));
+    proto_response
 }

@@ -9,6 +9,8 @@ message Response {
         InsertResponse insert = 2;
         DeleteResponse delete = 3;
         BatchResponse batch = 4;
+        ClientError client_error = 5;
+        ServerError server_error = 6;
     }
 }
 
@@ -37,6 +39,14 @@ message BatchResponseItem {
         GetResponse get = 1;
         InsertResponse insert = 2;
         DeleteResponse delete = 3;
-        BatchResponse batch = 4;
     }
+}
+
+
+message ClientError {
+    string detail = 1;
+}
+
+message ServerError {
+    string detail = 1;
 }

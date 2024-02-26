@@ -242,8 +242,106 @@ impl Response {
         }
     }
 
+    // .ClientError client_error = 5;
+
+    pub fn client_error(&self) -> &ClientError {
+        match self.data {
+            ::std::option::Option::Some(response::Data::ClientError(ref v)) => v,
+            _ => <ClientError as ::protobuf::Message>::default_instance(),
+        }
+    }
+
+    pub fn clear_client_error(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_client_error(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(response::Data::ClientError(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_client_error(&mut self, v: ClientError) {
+        self.data = ::std::option::Option::Some(response::Data::ClientError(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_client_error(&mut self) -> &mut ClientError {
+        if let ::std::option::Option::Some(response::Data::ClientError(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(response::Data::ClientError(ClientError::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(response::Data::ClientError(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_client_error(&mut self) -> ClientError {
+        if self.has_client_error() {
+            match self.data.take() {
+                ::std::option::Option::Some(response::Data::ClientError(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            ClientError::new()
+        }
+    }
+
+    // .ServerError server_error = 6;
+
+    pub fn server_error(&self) -> &ServerError {
+        match self.data {
+            ::std::option::Option::Some(response::Data::ServerError(ref v)) => v,
+            _ => <ServerError as ::protobuf::Message>::default_instance(),
+        }
+    }
+
+    pub fn clear_server_error(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_server_error(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(response::Data::ServerError(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_server_error(&mut self, v: ServerError) {
+        self.data = ::std::option::Option::Some(response::Data::ServerError(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_server_error(&mut self) -> &mut ServerError {
+        if let ::std::option::Option::Some(response::Data::ServerError(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(response::Data::ServerError(ServerError::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(response::Data::ServerError(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_server_error(&mut self) -> ServerError {
+        if self.has_server_error() {
+            match self.data.take() {
+                ::std::option::Option::Some(response::Data::ServerError(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            ServerError::new()
+        }
+    }
+
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(4);
+        let mut fields = ::std::vec::Vec::with_capacity(6);
         let mut oneofs = ::std::vec::Vec::with_capacity(1);
         fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, GetResponse>(
             "get",
@@ -272,6 +370,20 @@ impl Response {
             Response::batch,
             Response::mut_batch,
             Response::set_batch,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, ClientError>(
+            "client_error",
+            Response::has_client_error,
+            Response::client_error,
+            Response::mut_client_error,
+            Response::set_client_error,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, ServerError>(
+            "server_error",
+            Response::has_server_error,
+            Response::server_error,
+            Response::mut_server_error,
+            Response::set_server_error,
         ));
         oneofs.push(response::Data::generated_oneof_descriptor_data());
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<Response>(
@@ -304,6 +416,12 @@ impl ::protobuf::Message for Response {
                 34 => {
                     self.data = ::std::option::Option::Some(response::Data::Batch(is.read_message()?));
                 },
+                42 => {
+                    self.data = ::std::option::Option::Some(response::Data::ClientError(is.read_message()?));
+                },
+                50 => {
+                    self.data = ::std::option::Option::Some(response::Data::ServerError(is.read_message()?));
+                },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
                 },
@@ -334,6 +452,14 @@ impl ::protobuf::Message for Response {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
                 },
+                &response::Data::ClientError(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+                },
+                &response::Data::ServerError(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+                },
             };
         }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
@@ -356,6 +482,12 @@ impl ::protobuf::Message for Response {
                 &response::Data::Batch(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(4, v, os)?;
                 },
+                &response::Data::ClientError(ref v) => {
+                    ::protobuf::rt::write_message_field_with_cached_size(5, v, os)?;
+                },
+                &response::Data::ServerError(ref v) => {
+                    ::protobuf::rt::write_message_field_with_cached_size(6, v, os)?;
+                },
             };
         }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
@@ -375,6 +507,8 @@ impl ::protobuf::Message for Response {
     }
 
     fn clear(&mut self) {
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
@@ -423,6 +557,10 @@ pub mod response {
         Delete(super::DeleteResponse),
         // @@protoc_insertion_point(oneof_field:Response.batch)
         Batch(super::BatchResponse),
+        // @@protoc_insertion_point(oneof_field:Response.client_error)
+        ClientError(super::ClientError),
+        // @@protoc_insertion_point(oneof_field:Response.server_error)
+        ServerError(super::ServerError),
     }
 
     impl ::protobuf::Oneof for Data {
@@ -1137,57 +1275,8 @@ impl BatchResponseItem {
         }
     }
 
-    // .BatchResponse batch = 4;
-
-    pub fn batch(&self) -> &BatchResponse {
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Batch(ref v)) => v,
-            _ => <BatchResponse as ::protobuf::Message>::default_instance(),
-        }
-    }
-
-    pub fn clear_batch(&mut self) {
-        self.item = ::std::option::Option::None;
-    }
-
-    pub fn has_batch(&self) -> bool {
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Batch(..)) => true,
-            _ => false,
-        }
-    }
-
-    // Param is passed by value, moved
-    pub fn set_batch(&mut self, v: BatchResponse) {
-        self.item = ::std::option::Option::Some(batch_response_item::Item::Batch(v))
-    }
-
-    // Mutable pointer to the field.
-    pub fn mut_batch(&mut self) -> &mut BatchResponse {
-        if let ::std::option::Option::Some(batch_response_item::Item::Batch(_)) = self.item {
-        } else {
-            self.item = ::std::option::Option::Some(batch_response_item::Item::Batch(BatchResponse::new()));
-        }
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Batch(ref mut v)) => v,
-            _ => panic!(),
-        }
-    }
-
-    // Take field
-    pub fn take_batch(&mut self) -> BatchResponse {
-        if self.has_batch() {
-            match self.item.take() {
-                ::std::option::Option::Some(batch_response_item::Item::Batch(v)) => v,
-                _ => panic!(),
-            }
-        } else {
-            BatchResponse::new()
-        }
-    }
-
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(4);
+        let mut fields = ::std::vec::Vec::with_capacity(3);
         let mut oneofs = ::std::vec::Vec::with_capacity(1);
         fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, GetResponse>(
             "get",
@@ -1209,13 +1298,6 @@ impl BatchResponseItem {
             BatchResponseItem::delete,
             BatchResponseItem::mut_delete,
             BatchResponseItem::set_delete,
-        ));
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, BatchResponse>(
-            "batch",
-            BatchResponseItem::has_batch,
-            BatchResponseItem::batch,
-            BatchResponseItem::mut_batch,
-            BatchResponseItem::set_batch,
         ));
         oneofs.push(batch_response_item::Item::generated_oneof_descriptor_data());
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<BatchResponseItem>(
@@ -1245,9 +1327,6 @@ impl ::protobuf::Message for BatchResponseItem {
                 26 => {
                     self.item = ::std::option::Option::Some(batch_response_item::Item::Delete(is.read_message()?));
                 },
-                34 => {
-                    self.item = ::std::option::Option::Some(batch_response_item::Item::Batch(is.read_message()?));
-                },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
                 },
@@ -1274,10 +1353,6 @@ impl ::protobuf::Message for BatchResponseItem {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
                 },
-                &batch_response_item::Item::Batch(ref v) => {
-                    let len = v.compute_size();
-                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
-                },
             };
         }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
@@ -1296,9 +1371,6 @@ impl ::protobuf::Message for BatchResponseItem {
                 },
                 &batch_response_item::Item::Delete(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(3, v, os)?;
-                },
-                &batch_response_item::Item::Batch(ref v) => {
-                    ::protobuf::rt::write_message_field_with_cached_size(4, v, os)?;
                 },
             };
         }
@@ -1319,7 +1391,6 @@ impl ::protobuf::Message for BatchResponseItem {
     }
 
     fn clear(&mut self) {
-        self.item = ::std::option::Option::None;
         self.item = ::std::option::Option::None;
         self.item = ::std::option::Option::None;
         self.item = ::std::option::Option::None;
@@ -1365,8 +1436,6 @@ pub mod batch_response_item {
         Insert(super::InsertResponse),
         // @@protoc_insertion_point(oneof_field:BatchResponseItem.delete)
         Delete(super::DeleteResponse),
-        // @@protoc_insertion_point(oneof_field:BatchResponseItem.batch)
-        Batch(super::BatchResponse),
     }
 
     impl ::protobuf::Oneof for Item {
@@ -1386,23 +1455,270 @@ pub mod batch_response_item {
     }
 }
 
+// @@protoc_insertion_point(message:ClientError)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct ClientError {
+    // message fields
+    // @@protoc_insertion_point(field:ClientError.detail)
+    pub detail: ::std::string::String,
+    // special fields
+    // @@protoc_insertion_point(special_field:ClientError.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a ClientError {
+    fn default() -> &'a ClientError {
+        <ClientError as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl ClientError {
+    pub fn new() -> ClientError {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(1);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "detail",
+            |m: &ClientError| { &m.detail },
+            |m: &mut ClientError| { &mut m.detail },
+        ));
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<ClientError>(
+            "ClientError",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for ClientError {
+    const NAME: &'static str = "ClientError";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                10 => {
+                    self.detail = is.read_string()?;
+                },
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        if !self.detail.is_empty() {
+            my_size += ::protobuf::rt::string_size(1, &self.detail);
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        if !self.detail.is_empty() {
+            os.write_string(1, &self.detail)?;
+        }
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> ClientError {
+        ClientError::new()
+    }
+
+    fn clear(&mut self) {
+        self.detail.clear();
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static ClientError {
+        static instance: ClientError = ClientError {
+            detail: ::std::string::String::new(),
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for ClientError {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("ClientError").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for ClientError {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for ClientError {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
+// @@protoc_insertion_point(message:ServerError)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct ServerError {
+    // message fields
+    // @@protoc_insertion_point(field:ServerError.detail)
+    pub detail: ::std::string::String,
+    // special fields
+    // @@protoc_insertion_point(special_field:ServerError.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a ServerError {
+    fn default() -> &'a ServerError {
+        <ServerError as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl ServerError {
+    pub fn new() -> ServerError {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(1);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "detail",
+            |m: &ServerError| { &m.detail },
+            |m: &mut ServerError| { &mut m.detail },
+        ));
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<ServerError>(
+            "ServerError",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for ServerError {
+    const NAME: &'static str = "ServerError";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                10 => {
+                    self.detail = is.read_string()?;
+                },
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        if !self.detail.is_empty() {
+            my_size += ::protobuf::rt::string_size(1, &self.detail);
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        if !self.detail.is_empty() {
+            os.write_string(1, &self.detail)?;
+        }
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> ServerError {
+        ServerError::new()
+    }
+
+    fn clear(&mut self) {
+        self.detail.clear();
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static ServerError {
+        static instance: ServerError = ServerError {
+            detail: ::std::string::String::new(),
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for ServerError {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("ServerError").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for ServerError {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for ServerError {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x0eresponse.proto\x1a\x0ccommon.proto\"\xb2\x01\n\x08Response\x12\x20\
+    \n\x0eresponse.proto\x1a\x0ccommon.proto\"\x98\x02\n\x08Response\x12\x20\
     \n\x03get\x18\x01\x20\x01(\x0b2\x0c.GetResponseH\0R\x03get\x12)\n\x06ins\
     ert\x18\x02\x20\x01(\x0b2\x0f.InsertResponseH\0R\x06insert\x12)\n\x06del\
     ete\x18\x03\x20\x01(\x0b2\x0f.DeleteResponseH\0R\x06delete\x12&\n\x05bat\
-    ch\x18\x04\x20\x01(\x0b2\x0e.BatchResponseH\0R\x05batchB\x06\n\x04data\"\
-    k\n\x0bGetResponse\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\
-    \x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x12\x1e\
-    \n\x06values\x18\x03\x20\x03(\x0b2\x06.ValueR\x06values\"$\n\x0eInsertRe\
-    sponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"$\n\x0eDeleteRes\
-    ponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"9\n\rBatchRespons\
-    e\x12(\n\x05items\x18\x01\x20\x03(\x0b2\x12.BatchResponseItemR\x05items\
-    \"\xbb\x01\n\x11BatchResponseItem\x12\x20\n\x03get\x18\x01\x20\x01(\x0b2\
-    \x0c.GetResponseH\0R\x03get\x12)\n\x06insert\x18\x02\x20\x01(\x0b2\x0f.I\
-    nsertResponseH\0R\x06insert\x12)\n\x06delete\x18\x03\x20\x01(\x0b2\x0f.D\
-    eleteResponseH\0R\x06delete\x12&\n\x05batch\x18\x04\x20\x01(\x0b2\x0e.Ba\
-    tchResponseH\0R\x05batchB\x06\n\x04itemb\x06proto3\
+    ch\x18\x04\x20\x01(\x0b2\x0e.BatchResponseH\0R\x05batch\x121\n\x0cclient\
+    _error\x18\x05\x20\x01(\x0b2\x0c.ClientErrorH\0R\x0bclientError\x121\n\
+    \x0cserver_error\x18\x06\x20\x01(\x0b2\x0c.ServerErrorH\0R\x0bserverErro\
+    rB\x06\n\x04data\"k\n\x0bGetResponse\x12\x19\n\x08hash_key\x18\x01\x20\
+    \x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\
+    \x07sortKey\x12\x1e\n\x06values\x18\x03\x20\x03(\x0b2\x06.ValueR\x06valu\
+    es\"$\n\x0eInsertResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04oka\
+    y\"$\n\x0eDeleteResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\
+    \"9\n\rBatchResponse\x12(\n\x05items\x18\x01\x20\x03(\x0b2\x12.BatchResp\
+    onseItemR\x05items\"\x93\x01\n\x11BatchResponseItem\x12\x20\n\x03get\x18\
+    \x01\x20\x01(\x0b2\x0c.GetResponseH\0R\x03get\x12)\n\x06insert\x18\x02\
+    \x20\x01(\x0b2\x0f.InsertResponseH\0R\x06insert\x12)\n\x06delete\x18\x03\
+    \x20\x01(\x0b2\x0f.DeleteResponseH\0R\x06deleteB\x06\n\x04item\"%\n\x0bC\
+    lientError\x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detail\"%\n\x0bSer\
+    verError\x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detailb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -1421,13 +1737,15 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(1);
             deps.push(super::common::file_descriptor().clone());
-            let mut messages = ::std::vec::Vec::with_capacity(6);
+            let mut messages = ::std::vec::Vec::with_capacity(8);
             messages.push(Response::generated_message_descriptor_data());
             messages.push(GetResponse::generated_message_descriptor_data());
             messages.push(InsertResponse::generated_message_descriptor_data());
             messages.push(DeleteResponse::generated_message_descriptor_data());
             messages.push(BatchResponse::generated_message_descriptor_data());
             messages.push(BatchResponseItem::generated_message_descriptor_data());
+            messages.push(ClientError::generated_message_descriptor_data());
+            messages.push(ServerError::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(0);
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(
                 file_descriptor_proto(),

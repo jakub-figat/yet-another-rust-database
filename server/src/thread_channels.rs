@@ -1,5 +1,8 @@
 use crate::proto_parsing::{parse_message_field_from_value, parse_proto_from_value};
-use crate::protos::response::{BatchResponseItem, DeleteResponse, GetResponse, InsertResponse};
+use crate::protos::response::{
+    batch_response_item::Item as BatchItem, response::Data as ProtoResponseData, BatchResponseItem,
+    DeleteResponse, GetResponse, InsertResponse, Response as ProtoResponse,
+};
 use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
@@ -45,8 +48,8 @@ pub enum ThreadResponse {
 }
 
 impl ThreadResponse {
-    pub fn to_proto_response(self) -> crate::protos::response::Response {
-        let mut proto_response = crate::protos::response::Response::new();
+    pub fn to_proto_response(self) -> ProtoResponse {
+        let mut proto_response = ProtoResponse::new();
         let proto_response_data = match self {
             ThreadResponse::Get(result) => result.map(|row| {
                 let mut get_response = GetResponse::new();
@@ -57,21 +60,17 @@ impl ThreadResponse {
                     .into_iter()
                     .map(|value| parse_proto_from_value(value))
                     .collect();
-                crate::protos::response::response::Data::Get(get_response)
+                ProtoResponseData::Get(get_response)
             }),
             ThreadResponse::Insert(result) => {
                 let mut insert_response = InsertResponse::new();
                 insert_response.okay = result.is_ok();
-                Some(crate::protos::response::response::Data::Insert(
-                    insert_response,
-                ))
+                Some(ProtoResponseData::Insert(insert_response))
             }
             ThreadResponse::Delete(result) => {
                 let mut delete_response = DeleteResponse::new();
                 delete_response.okay = result.is_some();
-                Some(crate::protos::response::response::Data::Delete(
-                    delete_response,
-                ))
+                Some(ProtoResponseData::Delete(delete_response))
             }
         };
 
@@ -91,21 +90,17 @@ impl ThreadResponse {
                     .into_iter()
                     .map(|value| parse_proto_from_value(value))
                     .collect();
-                crate::protos::response::batch_response_item::Item::Get(get_response)
+                BatchItem::Get(get_response)
             }),
             ThreadResponse::Insert(result) => {
                 let mut insert_response = InsertResponse::new();
                 insert_response.okay = result.is_ok();
-                Some(crate::protos::response::batch_response_item::Item::Insert(
-                    insert_response,
-                ))
+                Some(BatchItem::Insert(insert_response))
             }
             ThreadResponse::Delete(result) => {
                 let mut delete_response = DeleteResponse::new();
                 delete_response.okay = result.is_some();
-                Some(crate::protos::response::batch_response_item::Item::Delete(
-                    delete_response,
-                ))
+                Some(BatchItem::Delete(delete_response))
             }
         };
 

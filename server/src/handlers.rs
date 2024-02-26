@@ -1,7 +1,4 @@
 use crate::proto_parsing::{client_error_to_proto_response, parse_request_from_bytes, Request};
-use crate::protos::response::{
-    response::Data as ProtoResponseData, BatchResponse, Response as ProtoResponse,
-};
 use crate::thread_channels::ThreadCommand::{Delete, Get, Insert};
 use crate::thread_channels::{
     get_command_target_partition, send_batches, ThreadChannel, ThreadCommand, ThreadResponse,
@@ -11,6 +8,7 @@ use futures::{SinkExt, StreamExt};
 use monoio::io::AsyncWriteRentExt;
 use monoio::net::TcpStream;
 use protobuf::Message;
+use protos::{BatchResponse, ProtoResponse, ProtoResponseData};
 use std::sync::Arc;
 use storage::{Row, SkipList};
 

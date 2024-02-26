@@ -1,4 +1,4 @@
-workspace = { members = [ "server", "storage"] }
+workspace = { members = [ "protos", "server", "storage"] }
 [package]
 name = "yet-another-rust-database"
 version = "0.1.0"

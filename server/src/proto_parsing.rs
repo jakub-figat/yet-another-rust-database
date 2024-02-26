@@ -1,12 +1,9 @@
-use crate::protos::common::{value::Data as ValueData, Value as ProtoValue};
-use crate::protos::request::{
-    batch_item::Item as BatchItem, request::Data as RequestData, Request as ProtoRequest,
-};
-use crate::protos::response::{
-    response::Data as ProtoResponseData, ClientError, Response as ProtoResponse,
-};
 use crate::thread_channels::ThreadCommand;
 use protobuf::{Message, MessageField};
+use protos::{
+    BatchItemData, ClientError, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
+    ProtoValue, ProtoValueData,
+};
 use storage::Value::{
     self, Boolean, Datetime, Decimal, Float32, Float64, Int32, Int64, Null, Unsigned32, Unsigned64,
     Varchar,
@@ -26,11 +23,11 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
         .data
         .ok_or("Invalid request data".to_string())?;
     match request_data {
-        RequestData::Get(get) => {
+        ProtoRequestData::Get(get) => {
             let sort_key = parse_value_from_proto(get.sort_key.unwrap());
             Ok(Request::Command(ThreadCommand::Get(get.hash_key, sort_key)))
         }
-        RequestData::Insert(insert) => {
+        ProtoRequestData::Insert(insert) => {
             let sort_key = parse_value_from_proto(insert.sort_key.unwrap());
             let values: Vec<_> = insert
                 .values
@@ -43,22 +40,22 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
                 values,
             )))
         }
-        RequestData::Delete(delete) => {
+        ProtoRequestData::Delete(delete) => {
             let sort_key = parse_value_from_proto(delete.sort_key.unwrap());
             Ok(Request::Command(ThreadCommand::Delete(
                 delete.hash_key,
                 sort_key,
             )))
         }
-        RequestData::Batch(batch) => {
+        ProtoRequestData::Batch(batch) => {
             let mut commands = Vec::with_capacity(batch.items.len());
             for item in batch.items {
                 let command = match item.item.unwrap() {
-                    BatchItem::Get(get) => {
+                    BatchItemData::Get(get) => {
                         let sort_key = parse_value_from_proto(get.sort_key.unwrap());
                         Ok::<ThreadCommand, String>(ThreadCommand::Get(get.hash_key, sort_key))
                     }
-                    BatchItem::Insert(insert) => {
+                    BatchItemData::Insert(insert) => {
                         let sort_key = parse_value_from_proto(insert.sort_key.unwrap());
                         let values: Vec<_> = insert
                             .values
@@ -67,47 +64,50 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Request, String>
                             .collect();
                         Ok(ThreadCommand::Insert(insert.hash_key, sort_key, values))
                     }
-                    BatchItem::Delete(delete) => {
+                    BatchItemData::Delete(delete) => {
                         let sort_key = parse_value_from_proto(delete.sort_key.unwrap());
                         Ok(ThreadCommand::Delete(delete.hash_key, sort_key))
                     }
+                    _ => panic!("Invalid batch item type")
                 }?;
                 commands.push(command);
             }
             Ok(Request::Batch(commands))
         }
+        _ => panic!("Invalid proto request data type")
     }
 }
 
 fn parse_value_from_proto(value: ProtoValue) -> Value {
     match value.data.unwrap() {
-        ValueData::Varchar(data) => Varchar(data, 1), // TODO
-        ValueData::Int32(data) => Int32(data),
-        ValueData::Int64(data) => Int64(data),
-        ValueData::Unsigned32(data) => Unsigned32(data),
-        ValueData::Unsigned64(data) => Unsigned64(data),
-        ValueData::Float32(data) => Float32(data),
-        ValueData::Float64(data) => Float64(data),
-        ValueData::Boolean(data) => Boolean(data),
-        ValueData::Decimal(data) => Decimal(data, 1, 1), // TODO
-        ValueData::Datetime(data) => Datetime(data),     // TODO
-        ValueData::Null(_) => Null,
+        ProtoValueData::Varchar(data) => Varchar(data, 1), // TODO
+        ProtoValueData::Int32(data) => Int32(data),
+        ProtoValueData::Int64(data) => Int64(data),
+        ProtoValueData::Unsigned32(data) => Unsigned32(data),
+        ProtoValueData::Unsigned64(data) => Unsigned64(data),
+        ProtoValueData::Float32(data) => Float32(data),
+        ProtoValueData::Float64(data) => Float64(data),
+        ProtoValueData::Boolean(data) => Boolean(data),
+        ProtoValueData::Decimal(data) => Decimal(data, 1, 1), // TODO
+        ProtoValueData::Datetime(data) => Datetime(data),     // TODO
+        ProtoValueData::Null(_) => Null,
+        _ => panic!("Invalid proto value type")
     }
 }
 
 pub fn parse_proto_from_value(value: Value) -> ProtoValue {
     let proto_enum_value = match value {
-        Varchar(data, _) => ValueData::Varchar(data), // TODO
-        Int32(data) => ValueData::Int32(data),
-        Int64(data) => ValueData::Int64(data),
-        Unsigned32(data) => ValueData::Unsigned32(data),
-        Unsigned64(data) => ValueData::Unsigned64(data),
-        Float32(data) => ValueData::Float32(data),
-        Float64(data) => ValueData::Float64(data),
-        Boolean(data) => ValueData::Boolean(data),
-        Decimal(data, _, _) => ValueData::Decimal(data), // TODO
-        Datetime(data) => ValueData::Datetime(data),     // TODO
-        Null => ValueData::Null(vec![0u8; 0]),
+        Varchar(data, _) => ProtoValueData::Varchar(data), // TODO
+        Int32(data) => ProtoValueData::Int32(data),
+        Int64(data) => ProtoValueData::Int64(data),
+        Unsigned32(data) => ProtoValueData::Unsigned32(data),
+        Unsigned64(data) => ProtoValueData::Unsigned64(data),
+        Float32(data) => ProtoValueData::Float32(data),
+        Float64(data) => ProtoValueData::Float64(data),
+        Boolean(data) => ProtoValueData::Boolean(data),
+        Decimal(data, _, _) => ProtoValueData::Decimal(data), // TODO
+        Datetime(data) => ProtoValueData::Datetime(data),     // TODO
+        Null => ProtoValueData::Null(vec![0u8; 0]),
     };
 
     let mut proto_value = ProtoValue::new();

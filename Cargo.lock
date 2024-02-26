@@ -534,6 +534,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "protos"
+version = "0.1.0"
+dependencies = [
+ "protobuf",
+ "protobuf-codegen",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -643,7 +651,7 @@ dependencies = [
  "monoio",
  "murmur3",
  "protobuf",
- "protobuf-codegen",
+ "protos",
  "storage",
  "tracing",
  "tracing-subscriber",

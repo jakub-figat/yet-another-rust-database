@@ -1,0 +1,10 @@
+[package]
+name = "protos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+protobuf = "3.3.0"
+
+[build-dependencies]
+protobuf-codegen = "3.3.0"

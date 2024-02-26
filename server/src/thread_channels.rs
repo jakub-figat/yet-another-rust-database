@@ -1,12 +1,12 @@
 use crate::proto_parsing::{parse_message_field_from_value, parse_proto_from_value};
-use crate::protos::response::{
-    batch_response_item::Item as BatchItem, response::Data as ProtoResponseData, BatchResponseItem,
-    DeleteResponse, GetResponse, InsertResponse, Response as ProtoResponse,
-};
 use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
 use murmur3::murmur3_32;
+use protos::{
+    BatchResponseItem, BatchResponseItemData, DeleteResponse, GetResponse, InsertResponse,
+    ProtoResponse, ProtoResponseData,
+};
 use std::io::Cursor;
 use std::sync::Arc;
 use storage::{Row, Value};
@@ -90,17 +90,17 @@ impl ThreadResponse {
                     .into_iter()
                     .map(|value| parse_proto_from_value(value))
                     .collect();
-                BatchItem::Get(get_response)
+                BatchResponseItemData::Get(get_response)
             }),
             ThreadResponse::Insert(result) => {
                 let mut insert_response = InsertResponse::new();
                 insert_response.okay = result.is_ok();
-                Some(BatchItem::Insert(insert_response))
+                Some(BatchResponseItemData::Insert(insert_response))
             }
             ThreadResponse::Delete(result) => {
                 let mut delete_response = DeleteResponse::new();
                 delete_response.okay = result.is_some();
-                Some(BatchItem::Delete(delete_response))
+                Some(BatchResponseItemData::Delete(delete_response))
             }
         };
 

@@ -5,12 +5,10 @@ edition = "2021"
 
 [dependencies]
 storage = { path = "../storage" }
+protos = { path = "../protos" }
 monoio = { version = "0.2.1", features = ["iouring", "sync"] }
 protobuf = "3.3.0"
 murmur3 = "0.5.2"
 futures = "0.3.30"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-[build-dependencies]
-protobuf-codegen = "3.3.0"

@@ -74,8 +74,17 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 name = "client"
 version = "0.1.0"
 dependencies = [
+ "common",
+ "macros",
  "protobuf",
  "protos",
+]
+
+[[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "get-size",
 ]
 
 [[package]]
@@ -315,6 +324,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
+name = "macros"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "proc-macro2",
+ "protos",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -545,6 +565,7 @@ dependencies = [
 name = "protos"
 version = "0.1.0"
 dependencies = [
+ "common",
  "protobuf",
  "protobuf-codegen",
 ]
@@ -655,6 +676,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "common",
  "futures",
  "monoio",
  "murmur3",
@@ -712,6 +734,7 @@ dependencies = [
 name = "storage"
 version = "0.1.0"
 dependencies = [
+ "common",
  "get-size",
  "monoio",
  "rand",
@@ -719,9 +742,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.48"
+version = "2.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f3531638e407dfc0814761abb7c00a5b54992b849452a0646b7f65c9f770f3f"
+checksum = "b699d15b36d1f02c3e7c69f8ffef53de37aefae075d8488d4ba1a7788d574a07"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1083,10 +1106,13 @@ name = "yet-another-rust-database"
 version = "0.1.0"
 dependencies = [
  "client",
+ "common",
  "futures",
+ "macros",
  "monoio",
  "murmur3",
  "protobuf",
+ "protos",
  "rand",
  "server",
  "storage",

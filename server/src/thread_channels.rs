@@ -1,15 +1,16 @@
-use crate::proto_parsing::{parse_message_field_from_value, parse_proto_from_value};
+use common::value::Value;
 use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
 use murmur3::murmur3_32;
+use protos::util::{parse_message_field_from_value, parse_proto_from_value};
 use protos::{
     BatchResponseItem, BatchResponseItemData, DeleteResponse, GetResponse, InsertResponse,
     ProtoResponse, ProtoResponseData,
 };
 use std::io::Cursor;
 use std::sync::Arc;
-use storage::{Row, Value};
+use storage::Row;
 
 static MURMUR3_SEED: u32 = 1119284470;
 
@@ -26,17 +27,17 @@ pub struct ThreadChannel {
 
 #[derive(Debug)]
 pub enum ThreadCommand {
-    Get(String, Value),
-    Insert(String, Value, Vec<Value>),
-    Delete(String, Value),
+    Get(String, Value, String),
+    Insert(String, Value, Vec<Value>, String),
+    Delete(String, Value, String),
 }
 
 impl ThreadCommand {
     pub fn hash_key(&self) -> String {
         match self {
-            ThreadCommand::Get(hash_key, _) => hash_key.clone(),
-            ThreadCommand::Insert(hash_key, _, _) => hash_key.clone(),
-            ThreadCommand::Delete(hash_key, _) => hash_key.clone(),
+            ThreadCommand::Get(hash_key, _, _) => hash_key.clone(),
+            ThreadCommand::Insert(hash_key, _, _, _) => hash_key.clone(),
+            ThreadCommand::Delete(hash_key, _, _) => hash_key.clone(),
         }
     }
 }

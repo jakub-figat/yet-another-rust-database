@@ -1,0 +1,15 @@
+[package]
+name = "macros"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+protos = { path = "../protos" }
+common = { path = "../common" }
+syn = "2.0.52"
+proc-macro2 = "1.0.78"
+quote = "1.0.35"
+
+
+[lib]
+proc-macro = true

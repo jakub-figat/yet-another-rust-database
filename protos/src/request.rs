@@ -450,6 +450,8 @@ pub struct GetRequest {
     pub hash_key: ::std::string::String,
     // @@protoc_insertion_point(field:GetRequest.sort_key)
     pub sort_key: ::protobuf::MessageField<super::common::Value>,
+    // @@protoc_insertion_point(field:GetRequest.table)
+    pub table: ::std::string::String,
     // special fields
     // @@protoc_insertion_point(special_field:GetRequest.special_fields)
     pub special_fields: ::protobuf::SpecialFields,
@@ -467,7 +469,7 @@ impl GetRequest {
     }
 
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(2);
+        let mut fields = ::std::vec::Vec::with_capacity(3);
         let mut oneofs = ::std::vec::Vec::with_capacity(0);
         fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
             "hash_key",
@@ -478,6 +480,11 @@ impl GetRequest {
             "sort_key",
             |m: &GetRequest| { &m.sort_key },
             |m: &mut GetRequest| { &mut m.sort_key },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "table",
+            |m: &GetRequest| { &m.table },
+            |m: &mut GetRequest| { &mut m.table },
         ));
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<GetRequest>(
             "GetRequest",
@@ -503,6 +510,9 @@ impl ::protobuf::Message for GetRequest {
                 18 => {
                     ::protobuf::rt::read_singular_message_into_field(is, &mut self.sort_key)?;
                 },
+                26 => {
+                    self.table = is.read_string()?;
+                },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
                 },
@@ -522,6 +532,9 @@ impl ::protobuf::Message for GetRequest {
             let len = v.compute_size();
             my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
         }
+        if !self.table.is_empty() {
+            my_size += ::protobuf::rt::string_size(3, &self.table);
+        }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
         self.special_fields.cached_size().set(my_size as u32);
         my_size
@@ -533,6 +546,9 @@ impl ::protobuf::Message for GetRequest {
         }
         if let Some(v) = self.sort_key.as_ref() {
             ::protobuf::rt::write_message_field_with_cached_size(2, v, os)?;
+        }
+        if !self.table.is_empty() {
+            os.write_string(3, &self.table)?;
         }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
         ::std::result::Result::Ok(())
@@ -553,6 +569,7 @@ impl ::protobuf::Message for GetRequest {
     fn clear(&mut self) {
         self.hash_key.clear();
         self.sort_key.clear();
+        self.table.clear();
         self.special_fields.clear();
     }
 
@@ -560,6 +577,7 @@ impl ::protobuf::Message for GetRequest {
         static instance: GetRequest = GetRequest {
             hash_key: ::std::string::String::new(),
             sort_key: ::protobuf::MessageField::none(),
+            table: ::std::string::String::new(),
             special_fields: ::protobuf::SpecialFields::new(),
         };
         &instance
@@ -593,6 +611,8 @@ pub struct InsertRequest {
     pub sort_key: ::protobuf::MessageField<super::common::Value>,
     // @@protoc_insertion_point(field:InsertRequest.values)
     pub values: ::std::vec::Vec<super::common::Value>,
+    // @@protoc_insertion_point(field:InsertRequest.table)
+    pub table: ::std::string::String,
     // special fields
     // @@protoc_insertion_point(special_field:InsertRequest.special_fields)
     pub special_fields: ::protobuf::SpecialFields,
@@ -610,7 +630,7 @@ impl InsertRequest {
     }
 
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(3);
+        let mut fields = ::std::vec::Vec::with_capacity(4);
         let mut oneofs = ::std::vec::Vec::with_capacity(0);
         fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
             "hash_key",
@@ -626,6 +646,11 @@ impl InsertRequest {
             "values",
             |m: &InsertRequest| { &m.values },
             |m: &mut InsertRequest| { &mut m.values },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "table",
+            |m: &InsertRequest| { &m.table },
+            |m: &mut InsertRequest| { &mut m.table },
         ));
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<InsertRequest>(
             "InsertRequest",
@@ -654,6 +679,9 @@ impl ::protobuf::Message for InsertRequest {
                 26 => {
                     self.values.push(is.read_message()?);
                 },
+                34 => {
+                    self.table = is.read_string()?;
+                },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
                 },
@@ -677,6 +705,9 @@ impl ::protobuf::Message for InsertRequest {
             let len = value.compute_size();
             my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
         };
+        if !self.table.is_empty() {
+            my_size += ::protobuf::rt::string_size(4, &self.table);
+        }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
         self.special_fields.cached_size().set(my_size as u32);
         my_size
@@ -692,6 +723,9 @@ impl ::protobuf::Message for InsertRequest {
         for v in &self.values {
             ::protobuf::rt::write_message_field_with_cached_size(3, v, os)?;
         };
+        if !self.table.is_empty() {
+            os.write_string(4, &self.table)?;
+        }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -712,6 +746,7 @@ impl ::protobuf::Message for InsertRequest {
         self.hash_key.clear();
         self.sort_key.clear();
         self.values.clear();
+        self.table.clear();
         self.special_fields.clear();
     }
 
@@ -720,6 +755,7 @@ impl ::protobuf::Message for InsertRequest {
             hash_key: ::std::string::String::new(),
             sort_key: ::protobuf::MessageField::none(),
             values: ::std::vec::Vec::new(),
+            table: ::std::string::String::new(),
             special_fields: ::protobuf::SpecialFields::new(),
         };
         &instance
@@ -751,6 +787,8 @@ pub struct DeleteRequest {
     pub hash_key: ::std::string::String,
     // @@protoc_insertion_point(field:DeleteRequest.sort_key)
     pub sort_key: ::protobuf::MessageField<super::common::Value>,
+    // @@protoc_insertion_point(field:DeleteRequest.table)
+    pub table: ::std::string::String,
     // special fields
     // @@protoc_insertion_point(special_field:DeleteRequest.special_fields)
     pub special_fields: ::protobuf::SpecialFields,
@@ -768,7 +806,7 @@ impl DeleteRequest {
     }
 
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(2);
+        let mut fields = ::std::vec::Vec::with_capacity(3);
         let mut oneofs = ::std::vec::Vec::with_capacity(0);
         fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
             "hash_key",
@@ -779,6 +817,11 @@ impl DeleteRequest {
             "sort_key",
             |m: &DeleteRequest| { &m.sort_key },
             |m: &mut DeleteRequest| { &mut m.sort_key },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "table",
+            |m: &DeleteRequest| { &m.table },
+            |m: &mut DeleteRequest| { &mut m.table },
         ));
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<DeleteRequest>(
             "DeleteRequest",
@@ -804,6 +847,9 @@ impl ::protobuf::Message for DeleteRequest {
                 18 => {
                     ::protobuf::rt::read_singular_message_into_field(is, &mut self.sort_key)?;
                 },
+                26 => {
+                    self.table = is.read_string()?;
+                },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
                 },
@@ -823,6 +869,9 @@ impl ::protobuf::Message for DeleteRequest {
             let len = v.compute_size();
             my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
         }
+        if !self.table.is_empty() {
+            my_size += ::protobuf::rt::string_size(3, &self.table);
+        }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
         self.special_fields.cached_size().set(my_size as u32);
         my_size
@@ -834,6 +883,9 @@ impl ::protobuf::Message for DeleteRequest {
         }
         if let Some(v) = self.sort_key.as_ref() {
             ::protobuf::rt::write_message_field_with_cached_size(2, v, os)?;
+        }
+        if !self.table.is_empty() {
+            os.write_string(3, &self.table)?;
         }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
         ::std::result::Result::Ok(())
@@ -854,6 +906,7 @@ impl ::protobuf::Message for DeleteRequest {
     fn clear(&mut self) {
         self.hash_key.clear();
         self.sort_key.clear();
+        self.table.clear();
         self.special_fields.clear();
     }
 
@@ -861,6 +914,7 @@ impl ::protobuf::Message for DeleteRequest {
         static instance: DeleteRequest = DeleteRequest {
             hash_key: ::std::string::String::new(),
             sort_key: ::protobuf::MessageField::none(),
+            table: ::std::string::String::new(),
             special_fields: ::protobuf::SpecialFields::new(),
         };
         &instance
@@ -1360,19 +1414,21 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \x03get\x18\x01\x20\x01(\x0b2\x0b.GetRequestH\0R\x03get\x12(\n\x06insert\
     \x18\x02\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06insert\x12(\n\x06delete\
     \x18\x03\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06delete\x12%\n\x05batch\
-    \x18\x04\x20\x01(\x0b2\r.BatchRequestH\0R\x05batchB\x06\n\x04data\"J\n\n\
+    \x18\x04\x20\x01(\x0b2\r.BatchRequestH\0R\x05batchB\x06\n\x04data\"`\n\n\
     GetRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\
-    \x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\"m\n\rInsertReq\
-    uest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\x08sort\
-    _key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x12\x1e\n\x06values\x18\
-    \x03\x20\x03(\x0b2\x06.ValueR\x06values\"M\n\rDeleteRequest\x12\x19\n\
+    \x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x12\x14\n\x05ta\
+    ble\x18\x03\x20\x01(\tR\x05table\"\x83\x01\n\rInsertRequest\x12\x19\n\
     \x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\
-    \x20\x01(\x0b2\x06.ValueR\x07sortKey\"0\n\x0cBatchRequest\x12\x20\n\x05i\
-    tems\x18\x01\x20\x03(\x0b2\n.BatchItemR\x05items\"\x88\x01\n\tBatchItem\
-    \x12\x1f\n\x03get\x18\x01\x20\x01(\x0b2\x0b.GetRequestH\0R\x03get\x12(\n\
-    \x06insert\x18\x02\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06insert\x12(\n\
-    \x06delete\x18\x03\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06deleteB\x06\n\
-    \x04itemb\x06proto3\
+    \x20\x01(\x0b2\x06.ValueR\x07sortKey\x12\x1e\n\x06values\x18\x03\x20\x03\
+    (\x0b2\x06.ValueR\x06values\x12\x14\n\x05table\x18\x04\x20\x01(\tR\x05ta\
+    ble\"c\n\rDeleteRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07has\
+    hKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x12\
+    \x14\n\x05table\x18\x03\x20\x01(\tR\x05table\"0\n\x0cBatchRequest\x12\
+    \x20\n\x05items\x18\x01\x20\x03(\x0b2\n.BatchItemR\x05items\"\x88\x01\n\
+    \tBatchItem\x12\x1f\n\x03get\x18\x01\x20\x01(\x0b2\x0b.GetRequestH\0R\
+    \x03get\x12(\n\x06insert\x18\x02\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06\
+    insert\x12(\n\x06delete\x18\x03\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06d\
+    eleteB\x06\n\x04itemb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file

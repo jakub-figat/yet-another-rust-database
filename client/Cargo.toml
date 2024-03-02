@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+common = { path = "../common" }
 protos = { path = "../protos" }
+macros = { path = "../macros" }
 protobuf = "3.3.0"

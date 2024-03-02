@@ -1,7 +1,7 @@
-use crate::row::Value::*;
+use common::value::Value;
+use common::value::Value::Varchar;
 use get_size::GetSize;
 use std::cmp::Ordering;
-use std::fmt::Display;
 use std::mem::size_of;
 
 #[derive(Clone, Debug)]
@@ -10,10 +10,11 @@ pub struct Row {
     pub sort_key: Value,
     pub primary_key: String,
     pub values: Vec<Value>,
+    pub table: String,
 }
 
 impl Row {
-    pub fn new(hash_key: String, sort_key: Value, values: Vec<Value>) -> Row {
+    pub fn new(hash_key: String, sort_key: Value, values: Vec<Value>, table: String) -> Row {
         let sort_key_string = sort_key.to_string();
         let mut primary_key = String::with_capacity(hash_key.len() + sort_key_string.len() + 1);
 
@@ -26,6 +27,7 @@ impl Row {
             sort_key,
             primary_key,
             values,
+            table,
         }
     }
 }
@@ -49,6 +51,7 @@ impl Default for Row {
             sort_key: Varchar("".to_string(), 0),
             primary_key: "".to_string(),
             values: Vec::new(),
+            table: String::new(),
         }
     }
 }
@@ -60,57 +63,5 @@ impl GetSize for Row {
             + self.primary_key.get_size()
             + size_of::<Vec<Value>>()
             + self.values.iter().map(|val| val.get_size()).sum::<usize>()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum Value {
-    Varchar(String, usize),
-    Int32(i32),
-    Int64(i64),
-    Unsigned32(u32),
-    Unsigned64(u64),
-    Float32(f32),
-    Float64(f64),
-    Decimal(String, usize, usize),
-    Datetime(String),
-    Boolean(bool),
-    Null,
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            Varchar(val, _) => val.clone(),
-            Int32(val) => val.to_string(),
-            Int64(val) => val.to_string(),
-            Unsigned32(val) => val.to_string(),
-            Unsigned64(val) => val.to_string(),
-            Float32(val) => val.to_string(),
-            Float64(val) => val.to_string(),
-            Decimal(val, _, _) => val.clone(),
-            Datetime(val) => val.clone(),
-            Boolean(val) => val.to_string(),
-            Null => "".to_string(),
-        };
-        write!(f, "{}", str)
-    }
-}
-
-impl GetSize for Value {
-    fn get_size(&self) -> usize {
-        match self {
-            Varchar(val, _) => val.get_size(),
-            Int32(val) => val.get_size(),
-            Int64(val) => val.get_size(),
-            Unsigned32(val) => val.get_size(),
-            Unsigned64(val) => val.get_size(),
-            Float32(val) => val.get_size(),
-            Float64(val) => val.get_size(),
-            Decimal(val, _, _) => val.get_size(),
-            Datetime(val) => val.get_size(),
-            Boolean(val) => val.get_size(),
-            Null => 0,
-        }
     }
 }

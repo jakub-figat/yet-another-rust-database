@@ -15,17 +15,20 @@ message Request {
 message GetRequest {
     string hash_key = 1;
     Value sort_key = 2;
+    string table = 3;
 }
 
 message InsertRequest {
     string hash_key = 1;
     Value sort_key = 2;
     repeated Value values = 3;
+    string table = 4;
 }
 
 message DeleteRequest {
     string hash_key = 1;
     Value sort_key = 2;
+    string table = 3;
 }
 
 

@@ -1,4 +1,4 @@
-use crate::proto_parsing::{client_error_to_proto_response, parse_request_from_bytes, Request};
+use crate::proto_parsing::{parse_request_from_bytes, Request};
 use crate::thread_channels::ThreadCommand::{Delete, Get, Insert};
 use crate::thread_channels::{
     get_command_target_partition, send_batches, ThreadChannel, ThreadCommand, ThreadResponse,
@@ -8,6 +8,7 @@ use futures::{SinkExt, StreamExt};
 use monoio::io::{AsyncReadRent, AsyncWriteRentExt};
 use monoio::net::TcpStream;
 use protobuf::Message;
+use protos::util::client_error_to_proto_response;
 use protos::{BatchResponse, ProtoResponse, ProtoResponseData};
 use std::sync::Arc;
 use storage::{Row, SkipList};
@@ -20,6 +21,7 @@ pub async fn receive_from_tcp(
     memtable: Arc<Mutex<SkipList<Row>>>,
 ) -> Vec<u8> {
     tracing::info!("Incoming request on thread {}", current_partition);
+
     let (_, mut buffer) = connection.read(buffer).await;
     let request = parse_request_from_bytes(&mut buffer);
     if let Err(error) = request {
@@ -83,16 +85,18 @@ pub async fn handle_command(
 ) -> ThreadResponse {
     let mut memtable = memtable.lock().await;
     match command {
-        Get(hash_key, sort_key) => {
-            let val = memtable.get(&Row::new(hash_key, sort_key, vec![])).cloned();
+        Get(hash_key, sort_key, table) => {
+            let val = memtable
+                .get(&Row::new(hash_key, sort_key, vec![], table))
+                .cloned();
             ThreadResponse::Get(val)
         }
-        Insert(hash_key, sort_key, values) => {
-            let val = memtable.insert(Row::new(hash_key, sort_key, values));
+        Insert(hash_key, sort_key, values, table) => {
+            let val = memtable.insert(Row::new(hash_key, sort_key, values, table));
             ThreadResponse::Insert(val)
         }
-        Delete(hash_key, sort_key) => {
-            let val = memtable.delete(&Row::new(hash_key, sort_key, vec![]));
+        Delete(hash_key, sort_key, table) => {
+            let val = memtable.delete(&Row::new(hash_key, sort_key, vec![], table));
             ThreadResponse::Delete(val)
         }
     }

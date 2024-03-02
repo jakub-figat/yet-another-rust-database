@@ -1,6 +1,7 @@
 mod common;
 mod request;
 mod response;
+pub mod util;
 
 pub use common::{value::Data as ProtoValueData, Value as ProtoValue};
 pub use request::{

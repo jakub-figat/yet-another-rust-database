@@ -16,6 +16,7 @@ protos = { path = "protos" }
 
 rand = "0.8.5"
 monoio = { version = "0.2.1", features = ["iouring", "sync"] }
+tokio = { version = "1.36.0", features = ["rt", "rt-multi-thread", "macros"] }
 futures = "0.3.30"
 murmur3 = "0.5.2"
 protobuf = "3.3.0"

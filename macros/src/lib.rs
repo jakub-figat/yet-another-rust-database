@@ -23,8 +23,8 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let (sort_key, fields) = extract_fields(fields);
 
     let from_get_impl = proc_from_get_response(&sort_key, &fields);
-    let insert_impl = proc_to_insert_request(&sort_key, &fields, &table_name);
-    let delete_impl = proc_to_delete_request(&sort_key, &table_name);
+    let insert_impl = proc_to_insert_request(&sort_key, &fields);
+    let delete_impl = proc_to_delete_request(&sort_key);
 
     let expanded = quote! {
         impl Model for #name {
@@ -38,6 +38,10 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
             fn to_delete_request(&self) -> DeleteRequest {
                 #delete_impl
+            }
+
+            fn table_name() -> String {
+                String::from(#table_name)
             }
         }
     };
@@ -101,7 +105,7 @@ fn proc_from_get_response(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
     }
 }
 
-fn proc_to_insert_request(sort_key: &Field, fields: &Vec<Field>, table_name: &str) -> TokenStream {
+fn proc_to_insert_request(sort_key: &Field, fields: &Vec<Field>) -> TokenStream {
     let sort_key_value_quote = parse_to_value_quote(sort_key);
     let sort_key_operation = quote! {
         #sort_key_value_quote
@@ -129,12 +133,12 @@ fn proc_to_insert_request(sort_key: &Field, fields: &Vec<Field>, table_name: &st
         #field_operations
 
         insert_request.values = values;
-        insert_request.table = String::from(#table_name);
+        insert_request.table = Self::table_name();
         insert_request
     }
 }
 
-fn proc_to_delete_request(sort_key: &Field, table_name: &str) -> TokenStream {
+fn proc_to_delete_request(sort_key: &Field) -> TokenStream {
     let sort_key_value_quote = parse_to_value_quote(sort_key);
     let sort_key_operation = quote! {
         #sort_key_value_quote
@@ -145,7 +149,7 @@ fn proc_to_delete_request(sort_key: &Field, table_name: &str) -> TokenStream {
         let mut delete_request = DeleteRequest::new();
         delete_request.hash_key = self.hash_key.clone();
         #sort_key_operation
-        delete_request.table = String::from(#table_name);
+        delete_request.table = Self::table_name();
 
         delete_request
     }

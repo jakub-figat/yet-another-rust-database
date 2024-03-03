@@ -7,4 +7,5 @@ edition = "2021"
 common = { path = "../common" }
 protos = { path = "../protos" }
 macros = { path = "../macros" }
+tokio = { version = "1.36.0", features = ["net"] }
 protobuf = "3.3.0"

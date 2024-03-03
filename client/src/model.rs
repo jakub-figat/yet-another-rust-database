@@ -1,4 +1,4 @@
-use protos::{InsertRequest, ProtoResponse};
+use protos::{DeleteRequest, GetResponse, InsertRequest};
 
 // macro: table name, required hash key, optional sort_key?
 
@@ -9,9 +9,9 @@ use protos::{InsertRequest, ProtoResponse};
 // migration tools in the future?
 
 pub trait Model {
-    fn from_get_response(proto_response: ProtoResponse) -> Self;
+    fn from_get_response(get_response: GetResponse) -> Self;
     fn to_insert_request(&self) -> InsertRequest;
-    // fn to_delete_request(&self) -> DeleteRequest;
+    fn to_delete_request(&self) -> DeleteRequest;
     // fn to_batch_request_item(&self) -> BatchItem;
 }
 

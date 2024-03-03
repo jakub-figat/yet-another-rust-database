@@ -5,7 +5,7 @@ use syn::token::Comma;
 
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, Type};
 
-#[proc_macro_derive(Model)]
+#[proc_macro_derive(DatabaseModel)]
 pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -23,16 +23,21 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let (sort_key, fields) = extract_fields(fields);
 
     let from_get_impl = proc_from_get_response(&sort_key, &fields);
-    let insert_impl = proc_to_insert_request(&sort_key, &fields, table_name);
+    let insert_impl = proc_to_insert_request(&sort_key, &fields, &table_name);
+    let delete_impl = proc_to_delete_request(&sort_key, &table_name);
 
     let expanded = quote! {
         impl Model for #name {
-            fn from_get_response(proto_response: ProtoResponse) -> Self {
+            fn from_get_response(get_response: GetResponse) -> Self {
                 #from_get_impl
             }
 
             fn to_insert_request(&self) -> InsertRequest {
                 #insert_impl
+            }
+
+            fn to_delete_request(&self) -> DeleteRequest {
+                #delete_impl
             }
         }
     };
@@ -83,10 +88,6 @@ fn proc_from_get_response(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
         .collect();
 
     quote! {
-        let get_response = match proto_response.data.unwrap() {
-            ProtoResponseData::Get(get_response) => get_response,
-            _ => panic!("Invalid proto response type")
-        };
         let hash_key = get_response.hash_key.clone();
 
         #sort_key_operation
@@ -100,11 +101,7 @@ fn proc_from_get_response(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
     }
 }
 
-fn proc_to_insert_request(
-    sort_key: &Field,
-    fields: &Vec<Field>,
-    table_name: String,
-) -> TokenStream {
+fn proc_to_insert_request(sort_key: &Field, fields: &Vec<Field>, table_name: &str) -> TokenStream {
     let sort_key_value_quote = parse_to_value_quote(sort_key);
     let sort_key_operation = quote! {
         #sort_key_value_quote
@@ -134,6 +131,23 @@ fn proc_to_insert_request(
         insert_request.values = values;
         insert_request.table = String::from(#table_name);
         insert_request
+    }
+}
+
+fn proc_to_delete_request(sort_key: &Field, table_name: &str) -> TokenStream {
+    let sort_key_value_quote = parse_to_value_quote(sort_key);
+    let sort_key_operation = quote! {
+        #sort_key_value_quote
+        delete_request.sort_key = parse_message_field_from_value(value);
+    };
+
+    quote! {
+        let mut delete_request = DeleteRequest::new();
+        delete_request.hash_key = self.hash_key.clone();
+        #sort_key_operation
+        delete_request.table = String::from(#table_name);
+
+        delete_request
     }
 }
 

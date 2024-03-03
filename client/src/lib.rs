@@ -1,4 +1,5 @@
 mod model;
+mod pool;
 
 pub use crate::model::Model;
 

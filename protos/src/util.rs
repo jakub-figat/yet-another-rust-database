@@ -44,6 +44,10 @@ pub fn parse_message_field_from_value(value: Value) -> MessageField<ProtoValue> 
     MessageField(Some(Box::new(proto_value)))
 }
 
+pub fn parse_value_from_message_field(message_field: MessageField<ProtoValue>) -> Value {
+    parse_value_from_proto(message_field.unwrap())
+}
+
 pub fn client_error_to_proto_response(error: String) -> ProtoResponse {
     let mut client_response = ClientError::new();
     client_response.detail = error;

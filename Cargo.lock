@@ -124,6 +124,7 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "get-size",
+ "murmur3",
 ]
 
 [[package]]
@@ -748,7 +749,6 @@ dependencies = [
  "common",
  "futures",
  "monoio",
- "murmur3",
  "protobuf",
  "protos",
  "storage",

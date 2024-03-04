@@ -1,23 +1,71 @@
 use crate::model::Model;
+use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use protobuf::Message;
 use protos::util::parse_message_field_from_value;
 use protos::{
     DeleteRequest, GetRequest, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
 };
+use std::collections::HashMap;
 use std::net::SocketAddrV4;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 pub struct Session {
-    stream: TcpStream,
-    address: SocketAddrV4,
+    connections: HashMap<usize, Vec<TcpStream>>,
 }
 
 impl Session {
-    pub async fn new(address: SocketAddrV4) -> Session {
-        let stream = TcpStream::connect(address).await.unwrap();
-        Session { address, stream }
+    pub async fn new(
+        address: SocketAddrV4,
+        connections_per_thread: usize,
+    ) -> Result<Session, String> {
+        let mut stream = TcpStream::connect(address)
+            .await
+            .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
+
+        let mut buffer = [0u8; 1];
+        stream
+            .read_exact(&mut buffer)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let num_of_threads = buffer[0] as u16;
+        let mut session = Session {
+            connections: (0..num_of_threads)
+                .map(|partition| {
+                    (
+                        partition as usize,
+                        Vec::with_capacity(connections_per_thread),
+                    )
+                })
+                .collect(),
+        };
+        session.connections.get_mut(&0).unwrap().push(stream);
+
+        let starting_port = address.port();
+        let last_port = starting_port + num_of_threads;
+
+        for (thread_number, port) in (starting_port..last_port).enumerate() {
+            let start = match port == starting_port {
+                true => 1,
+                false => 0,
+            };
+
+            let new_address = SocketAddrV4::new(address.ip().clone(), port);
+            for _ in start..connections_per_thread {
+                let stream = TcpStream::connect(new_address)
+                    .await
+                    .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
+                session
+                    .connections
+                    .get_mut(&thread_number)
+                    .unwrap()
+                    .push(stream);
+            }
+        }
+
+        Ok(session)
     }
 
     pub async fn get<T: Model>(
@@ -25,6 +73,8 @@ impl Session {
         hash_key: String,
         sort_key: Value,
     ) -> Result<Option<T>, String> {
+        let partition = get_hash_key_target_partition(&hash_key, self.connections.len());
+
         let mut get_request = GetRequest::new();
         get_request.hash_key = hash_key;
         get_request.sort_key = parse_message_field_from_value(sort_key);
@@ -33,7 +83,7 @@ impl Session {
         let mut request = ProtoRequest::new();
         request.data = Some(ProtoRequestData::Get(get_request));
 
-        let proto_response = self.send_request(request).await?;
+        let proto_response = self.send_request(request, partition).await?;
 
         // TODO: null handling?
         Ok(proto_response
@@ -45,12 +95,13 @@ impl Session {
     }
 
     pub async fn insert<T: Model>(&mut self, instance: T) -> Result<(), String> {
+        let partition = get_hash_key_target_partition(&instance.hash_key(), self.connections.len());
         let insert_request = instance.to_insert_request();
 
         let mut request = ProtoRequest::new();
         request.data = Some(ProtoRequestData::Insert(insert_request));
 
-        let proto_response = self.send_request(request).await?;
+        let proto_response = self.send_request(request, partition).await?;
 
         // TODO, error handling?
         match proto_response.data.unwrap() {
@@ -68,6 +119,8 @@ impl Session {
         sort_key: Value,
         table_name: String,
     ) -> Result<Option<()>, String> {
+        let partition = get_hash_key_target_partition(&hash_key, self.connections.len());
+
         let mut delete_request = DeleteRequest::new();
         delete_request.hash_key = hash_key;
         delete_request.sort_key = parse_message_field_from_value(sort_key);
@@ -75,7 +128,7 @@ impl Session {
 
         let mut request = ProtoRequest::new();
         request.data = Some(ProtoRequestData::Delete(delete_request));
-        let proto_response = self.send_request(request).await?;
+        let proto_response = self.send_request(request, partition).await?;
 
         // TODO, error handling?
         match proto_response.data {
@@ -90,24 +143,34 @@ impl Session {
         }
     }
 
-    async fn send_request(&mut self, proto_request: ProtoRequest) -> Result<ProtoResponse, String> {
+    async fn send_request(
+        &mut self,
+        proto_request: ProtoRequest,
+        partition: usize,
+    ) -> Result<ProtoResponse, String> {
         let request_bytes = proto_request.write_to_bytes().unwrap();
         let request_size_prefix = (request_bytes.len() as u32).to_be_bytes();
 
-        self.stream
+        let stream = self
+            .connections
+            .get_mut(&partition)
+            .unwrap()
+            .get_mut(0)
+            .unwrap();
+
+        stream
             .write_all(&request_size_prefix)
             .await
             .map_err(|e| e.to_string())?;
-
-        self.stream
+        stream
             .write_all(&request_bytes)
             .await
             .map_err(|e| e.to_string())?;
 
-        let response_size = self.stream.read_u32().await.map_err(|e| e.to_string())?;
+        let response_size = stream.read_u32().await.map_err(|e| e.to_string())?;
         let mut buffer = vec![0u8; response_size as usize];
         // TODO: timeout
-        self.stream
+        stream
             .read_exact(&mut buffer)
             .await
             .map_err(|e| e.to_string())?;

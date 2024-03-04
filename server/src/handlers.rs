@@ -1,12 +1,10 @@
-use crate::listener::write_to_tcp;
 use crate::proto_parsing::{parse_request_from_bytes, Request};
 use crate::thread_channels::ThreadCommand::{Delete, Get, Insert};
-use crate::thread_channels::{
-    get_command_target_partition, send_batches, ThreadChannel, ThreadCommand, ThreadResponse,
-};
+use crate::thread_channels::{send_batches, ThreadChannel, ThreadCommand, ThreadResponse};
+use common::partition::get_hash_key_target_partition;
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
-use monoio::io::AsyncReadRentExt;
+use monoio::io::{AsyncReadRentExt, AsyncWriteRentExt};
 use monoio::net::TcpStream;
 use protobuf::Message;
 use protos::util::client_error_to_proto_response;
@@ -24,10 +22,15 @@ pub enum HandlerError {
 pub async fn handle_tcp_stream(
     mut stream: TcpStream,
     partition: usize,
+    num_of_threads: usize,
     channels: Vec<Arc<Mutex<ThreadChannel>>>,
     memtable: Arc<Mutex<SkipList<Row>>>,
 ) {
     tracing::info!("Accepting connection on thread {}", partition);
+    if let (Err(error), _) = stream.write_all(Vec::from([num_of_threads as u8])).await {
+        tracing::error!("Failed to send num_of_threads: {}", error.to_string());
+        return;
+    }
 
     loop {
         let response_bytes = match listen_for_tcp_request(
@@ -77,6 +80,7 @@ async fn listen_for_tcp_request(
         .await
         .map_err(|error| match error.kind() {
             ErrorKind::UnexpectedEof => HandlerError::Disconnected,
+            ErrorKind::ConnectionReset => HandlerError::Disconnected,
             _ => HandlerError::Server(format!(
                 "Failed to parse request size: {}",
                 error.to_string()
@@ -98,7 +102,8 @@ async fn listen_for_tcp_request(
 
     let proto_response = match request {
         Request::Command(command) => {
-            let target_partition = get_command_target_partition(&command, channels.len());
+            let target_partition =
+                get_hash_key_target_partition(&command.hash_key(), channels.len());
             let response = match target_partition == current_partition {
                 true => handle_command(command, memtable.clone()).await,
                 false => {
@@ -153,5 +158,16 @@ pub async fn handle_command(
             let val = memtable.delete(&Row::new(hash_key, sort_key, vec![], table));
             ThreadResponse::Delete(val)
         }
+    }
+}
+
+async fn write_to_tcp(stream: &mut TcpStream, bytes: Vec<u8>) {
+    let response_size_prefix = (bytes.len() as u32).to_be_bytes().to_vec();
+    if let (Err(error), _) = stream.write_all(response_size_prefix).await {
+        tracing::error!("Couldn't write response to tcp, {}", error);
+    }
+
+    if let (Err(error), _) = stream.write_all(bytes).await {
+        tracing::error!("Couldn't write response to tcp, {}", error);
     }
 }

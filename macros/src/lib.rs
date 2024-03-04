@@ -40,6 +40,10 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 #delete_impl
             }
 
+            fn hash_key(&self) -> String {
+                self.hash_key.clone()
+            }
+
             fn table_name() -> String {
                 String::from(#table_name)
             }

@@ -3,8 +3,7 @@ use crate::thread_channels::{CommandReceiver, ResponseSender, ThreadChannel};
 use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
-use monoio::io::AsyncWriteRentExt;
-use monoio::net::{TcpListener, TcpStream};
+use monoio::net::TcpListener;
 use monoio::FusionDriver;
 use std::sync::Arc;
 use std::thread;
@@ -14,7 +13,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{filter, Layer};
 
-static TCP_PORT: usize = 29876;
+static TCP_STARTING_PORT: usize = 29800;
 
 pub fn run_listener_threads(num_of_threads: usize) {
     tracing_subscriber::registry()
@@ -45,7 +44,12 @@ pub fn run_listener_threads(num_of_threads: usize) {
                 .build()
                 .unwrap();
 
-            runtime.block_on(thread_main(partition, inner_channel, channels));
+            runtime.block_on(thread_main(
+                partition,
+                num_of_threads,
+                inner_channel,
+                channels,
+            ));
         });
     }
 
@@ -54,36 +58,27 @@ pub fn run_listener_threads(num_of_threads: usize) {
 
 async fn thread_main(
     partition: usize,
+    num_of_threads: usize,
     inner_channel: (ResponseSender, CommandReceiver),
     channels: Vec<Arc<Mutex<ThreadChannel>>>,
 ) {
     let memtable = Arc::new(Mutex::new(SkipList::<Row>::default()));
 
-    let tcp_listener = TcpListener::bind(format!("0.0.0.0:{}", TCP_PORT.to_string())).unwrap();
-    tracing::info!("Listening on port {} on thread {}", TCP_PORT, partition);
+    let tcp_port = TCP_STARTING_PORT + partition;
+    let tcp_listener = TcpListener::bind(format!("0.0.0.0:{}", tcp_port.to_string())).unwrap();
+    tracing::info!("Listening on port {} on thread {}", tcp_port, partition);
 
     let (mut response_sender, mut command_receiver) = inner_channel;
 
     loop {
         monoio::select! {
             Ok((stream, _)) = tcp_listener.accept() => {
-                monoio::spawn(handle_tcp_stream(stream, partition, channels.clone(), memtable.clone()));
+                monoio::spawn(handle_tcp_stream(stream, partition, num_of_threads, channels.clone(), memtable.clone()));
             }
             Some(command) = command_receiver.next() => {
                 let response = handle_command(command, memtable.clone()).await;
                 response_sender.send(response).await.unwrap();
             }
         }
-    }
-}
-
-pub async fn write_to_tcp(stream: &mut TcpStream, bytes: Vec<u8>) {
-    let response_size_prefix = (bytes.len() as u32).to_be_bytes().to_vec();
-    if let (Err(error), _) = stream.write_all(response_size_prefix).await {
-        tracing::error!("Couldn't write response to tcp, {}", error);
-    }
-
-    if let (Err(error), _) = stream.write_all(bytes).await {
-        tracing::error!("Couldn't write response to tcp, {}", error);
     }
 }

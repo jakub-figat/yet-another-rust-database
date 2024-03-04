@@ -13,7 +13,7 @@ use std::time::Duration;
 
 #[tokio::main]
 async fn main() {
-    let addr = SocketAddrV4::from_str("0.0.0.0:29876").unwrap();
+    let addr = SocketAddrV4::from_str("0.0.0.0:29800").unwrap();
 
     let user = User {
         hash_key: "1".to_string(),
@@ -22,7 +22,7 @@ async fn main() {
         last_name: "4".to_string(),
     };
 
-    let mut session = Session::new(addr).await;
+    let mut session = Session::new(addr, 1).await.unwrap();
     session.insert(user.clone()).await.unwrap();
 
     loop {
@@ -34,7 +34,6 @@ async fn main() {
             .unwrap();
         println!("{:?}", user_from_db);
     }
-
     // TODO client conn pool, server max conns/futures
 }
 

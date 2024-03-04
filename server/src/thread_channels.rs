@@ -1,18 +1,15 @@
+use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
-use murmur3::murmur3_32;
 use protos::util::{parse_message_field_from_value, parse_proto_from_value};
 use protos::{
     BatchResponseItem, BatchResponseItemData, DeleteResponse, GetResponse, InsertResponse,
     ProtoResponse, ProtoResponseData,
 };
-use std::io::Cursor;
 use std::sync::Arc;
 use storage::Row;
-
-static MURMUR3_SEED: u32 = 1119284470;
 
 pub type CommandSender = mpsc::UnboundedSender<ThreadCommand>;
 pub type CommandReceiver = mpsc::UnboundedReceiver<ThreadCommand>;
@@ -111,12 +108,6 @@ impl ThreadResponse {
     }
 }
 
-pub fn get_command_target_partition(command: &ThreadCommand, num_of_threads: usize) -> usize {
-    let hash_key = command.hash_key();
-    let hash = murmur3_32(&mut Cursor::new(&hash_key), MURMUR3_SEED).unwrap();
-    (hash % (num_of_threads as u32)) as usize
-}
-
 pub async fn send_batches(
     commands: Vec<ThreadCommand>,
     channels: Vec<Arc<Mutex<ThreadChannel>>>,
@@ -128,8 +119,7 @@ pub async fn send_batches(
 
     for command in commands {
         let hash_key = command.hash_key();
-        let hash = murmur3_32(&mut Cursor::new(&hash_key), MURMUR3_SEED).unwrap();
-        let partition = (hash % (channels.len() as u32)) as usize;
+        let partition = get_hash_key_target_partition(&hash_key, channels.len());
         batches[partition].push((response_index, command));
         response_index += 1;
     }

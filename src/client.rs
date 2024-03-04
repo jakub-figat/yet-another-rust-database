@@ -22,7 +22,7 @@ async fn main() {
         last_name: "4".to_string(),
     };
 
-    let mut session = Session::new(addr, 1).await.unwrap();
+    let mut session = Session::new(addr, 10).await.unwrap();
     session.insert(user.clone()).await.unwrap();
 
     loop {

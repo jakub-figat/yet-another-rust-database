@@ -72,23 +72,19 @@ async fn listen_for_tcp_request(
     channels: Vec<Arc<Mutex<ThreadChannel>>>,
     memtable: Arc<Mutex<SkipList<Row>>>,
 ) -> Result<ProtoResponse, HandlerError> {
-    let request_size_buffer = vec![0u8; 4];
-    let (result, request_size_buffer) = stream.read_exact(request_size_buffer).await;
-
-    result.map_err(|error| match error.kind() {
-        ErrorKind::UnexpectedEof => HandlerError::Disconnected,
-        _ => HandlerError::Server(format!(
-            "Failed to parse request size: {}",
-            error.to_string()
-        )),
-    })?;
-
+    let request_size = stream
+        .read_u32()
+        .await
+        .map_err(|error| match error.kind() {
+            ErrorKind::UnexpectedEof => HandlerError::Disconnected,
+            _ => HandlerError::Server(format!(
+                "Failed to parse request size: {}",
+                error.to_string()
+            )),
+        })?;
     tracing::info!("Incoming request on thread {}", current_partition);
 
-    let request_size_bytes: [u8; 4] = request_size_buffer.try_into().unwrap();
-    let request_size = u32::from_be_bytes(request_size_bytes) as usize;
-
-    let buffer = vec![0u8; request_size];
+    let buffer = vec![0u8; request_size as usize];
     let (result, mut buffer) = stream.read_exact(buffer).await;
     result.map_err(|e| HandlerError::Server(e.to_string()))?;
 

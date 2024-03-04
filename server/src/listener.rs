@@ -1,4 +1,4 @@
-use crate::handlers::{handle_command, receive_from_tcp, HandlerError};
+use crate::handlers::{handle_command, handle_tcp_stream};
 use crate::thread_channels::{CommandReceiver, ResponseSender, ThreadChannel};
 use futures::channel::mpsc;
 use futures::lock::Mutex;
@@ -6,9 +6,6 @@ use futures::{SinkExt, StreamExt};
 use monoio::io::AsyncWriteRentExt;
 use monoio::net::{TcpListener, TcpStream};
 use monoio::FusionDriver;
-use protobuf::Message;
-use protos::util::client_error_to_proto_response;
-use protos::{ProtoResponse, ProtoResponseData, ServerError};
 use std::sync::Arc;
 use std::thread;
 use storage::Row;
@@ -69,36 +66,8 @@ async fn thread_main(
 
     loop {
         monoio::select! {
-            Ok((connection, _)) = tcp_listener.accept() => {
-                let mut stream = connection;
-                let response_bytes = match receive_from_tcp(
-                    &mut stream, partition, channels.clone(), memtable.clone()
-                ).await {
-                    Ok(proto_response) => {
-                        proto_response.write_to_bytes().unwrap()
-                    }
-                    Err(handler_error) => {
-                        match handler_error {
-                            HandlerError::Client(client_error) => {
-                                tracing::warn!("Invalid request on thread {}", partition);
-
-                                let proto_response = client_error_to_proto_response(client_error);
-                                proto_response.write_to_bytes().unwrap()
-                            }
-                            HandlerError::Server(server_error) => {
-                                tracing::error!("Internal server error: {}", server_error);
-
-                                let mut server_error = ServerError::new();
-                                server_error.detail = "Internal server error".to_string();
-
-                                let mut proto_response = ProtoResponse::new();
-                                proto_response.data = Some(ProtoResponseData::ServerError(server_error));
-                                proto_response.write_to_bytes().unwrap()
-                            }
-                        }
-                    }
-                };
-                write_to_tcp(&mut stream, response_bytes).await;
+            Ok((stream, _)) = tcp_listener.accept() => {
+                monoio::spawn(handle_tcp_stream(stream, partition, channels.clone(), memtable.clone()));
             }
             Some(command) = command_receiver.next() => {
                 let response = handle_command(command, memtable.clone()).await;

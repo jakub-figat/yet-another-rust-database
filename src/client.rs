@@ -8,6 +8,8 @@ use protos::util::{
 use protos::{DeleteRequest, GetResponse, InsertRequest};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
+use std::thread;
+use std::time::Duration;
 
 #[tokio::main]
 async fn main() {
@@ -21,17 +23,19 @@ async fn main() {
     };
 
     let mut session = Session::new(addr).await;
-    // session.insert(user.clone()).await.unwrap();
+    session.insert(user.clone()).await.unwrap();
 
-    // let mut session = Session::new(addr).await;
-    let user_from_db: User = session
-        .get(user.hash_key.clone(), Varchar(user.sort_key.clone(), 1))
-        .await
-        .unwrap()
-        .unwrap();
-    println!("{:?}", user_from_db);
+    loop {
+        thread::sleep(Duration::from_secs(1));
+        let user_from_db: User = session
+            .get(user.hash_key.clone(), Varchar(user.sort_key.clone(), 1))
+            .await
+            .unwrap()
+            .unwrap();
+        println!("{:?}", user_from_db);
+    }
 
-    // TODO: fix reusing single session, probably some heavy buffer mess
+    // TODO client conn pool, server max conns/futures
 }
 
 #[derive(DatabaseModel, Clone, Debug)]

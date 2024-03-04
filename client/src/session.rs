@@ -9,8 +9,6 @@ use std::net::SocketAddrV4;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-static PROTO_RESPONSE_INITIAL_BUFFER_SIZE: usize = 8 * 1024;
-
 pub struct Session {
     stream: TcpStream,
     address: SocketAddrV4,
@@ -94,27 +92,26 @@ impl Session {
 
     async fn send_request(&mut self, proto_request: ProtoRequest) -> Result<ProtoResponse, String> {
         let request_bytes = proto_request.write_to_bytes().unwrap();
+        let request_size_prefix = (request_bytes.len() as u32).to_be_bytes();
+
+        self.stream
+            .write_all(&request_size_prefix)
+            .await
+            .map_err(|e| e.to_string())?;
+
         self.stream
             .write_all(&request_bytes)
             .await
             .map_err(|e| e.to_string())?;
 
-        let mut buffer = vec![0u8; PROTO_RESPONSE_INITIAL_BUFFER_SIZE];
-        let mut offset = 0usize;
+        let response_size = self.stream.read_u32().await.map_err(|e| e.to_string())?;
+        let mut buffer = vec![0u8; response_size as usize];
+        // TODO: timeout
+        self.stream
+            .read_exact(&mut buffer)
+            .await
+            .map_err(|e| e.to_string())?;
 
-        loop {
-            let bytes_read = self
-                .stream
-                .read(&mut buffer[offset..])
-                .await
-                .map_err(|e| e.to_string())?;
-            offset += bytes_read;
-
-            if bytes_read == 0 {
-                break;
-            }
-        }
-
-        ProtoResponse::parse_from_bytes(&buffer[..offset]).map_err(|e| e.to_string())
+        ProtoResponse::parse_from_bytes(&buffer).map_err(|e| e.to_string())
     }
 }

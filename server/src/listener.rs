@@ -1,19 +1,22 @@
-use crate::handlers::{handle_command, receive_from_tcp};
+use crate::handlers::{handle_command, receive_from_tcp, HandlerError};
 use crate::thread_channels::{CommandReceiver, ResponseSender, ThreadChannel};
 use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
-use monoio::net::TcpListener;
+use monoio::io::AsyncWriteRentExt;
+use monoio::net::{TcpListener, TcpStream};
 use monoio::FusionDriver;
+use protobuf::Message;
+use protos::util::client_error_to_proto_response;
+use protos::{ProtoResponse, ProtoResponseData, ServerError};
 use std::sync::Arc;
 use std::thread;
 use storage::Row;
-use storage::{SkipList, MEGABYTE};
+use storage::SkipList;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{filter, Layer};
 
-static BUFFER_SIZE: usize = MEGABYTE * 512;
 static TCP_PORT: usize = 29876;
 
 pub fn run_listener_threads(num_of_threads: usize) {
@@ -57,7 +60,6 @@ async fn thread_main(
     inner_channel: (ResponseSender, CommandReceiver),
     channels: Vec<Arc<Mutex<ThreadChannel>>>,
 ) {
-    let mut buffer = vec![0u8; BUFFER_SIZE];
     let memtable = Arc::new(Mutex::new(SkipList::<Row>::default()));
 
     let tcp_listener = TcpListener::bind(format!("0.0.0.0:{}", TCP_PORT.to_string())).unwrap();
@@ -68,12 +70,51 @@ async fn thread_main(
     loop {
         monoio::select! {
             Ok((connection, _)) = tcp_listener.accept() => {
-                buffer = receive_from_tcp(connection, buffer, partition, channels.clone(), memtable.clone()).await;
+                let mut stream = connection;
+                let response_bytes = match receive_from_tcp(
+                    &mut stream, partition, channels.clone(), memtable.clone()
+                ).await {
+                    Ok(proto_response) => {
+                        proto_response.write_to_bytes().unwrap()
+                    }
+                    Err(handler_error) => {
+                        match handler_error {
+                            HandlerError::Client(client_error) => {
+                                tracing::warn!("Invalid request on thread {}", partition);
+
+                                let proto_response = client_error_to_proto_response(client_error);
+                                proto_response.write_to_bytes().unwrap()
+                            }
+                            HandlerError::Server(server_error) => {
+                                tracing::error!("Internal server error: {}", server_error);
+
+                                let mut server_error = ServerError::new();
+                                server_error.detail = "Internal server error".to_string();
+
+                                let mut proto_response = ProtoResponse::new();
+                                proto_response.data = Some(ProtoResponseData::ServerError(server_error));
+                                proto_response.write_to_bytes().unwrap()
+                            }
+                        }
+                    }
+                };
+                write_to_tcp(&mut stream, response_bytes).await;
             }
             Some(command) = command_receiver.next() => {
                 let response = handle_command(command, memtable.clone()).await;
                 response_sender.send(response).await.unwrap();
             }
         }
+    }
+}
+
+pub async fn write_to_tcp(stream: &mut TcpStream, bytes: Vec<u8>) {
+    let response_size_prefix = (bytes.len() as u32).to_be_bytes().to_vec();
+    if let (Err(error), _) = stream.write_all(response_size_prefix).await {
+        tracing::error!("Couldn't write response to tcp, {}", error);
+    }
+
+    if let (Err(error), _) = stream.write_all(bytes).await {
+        tracing::error!("Couldn't write response to tcp, {}", error);
     }
 }

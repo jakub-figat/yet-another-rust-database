@@ -1,3 +1,13 @@
+for client:
+reuse tcp conn
+add message size when sending to tcp
+conn pooling on client
+multiple shards connections? (scylla fashion)
+nulls, errors, batches
+timeouts and retries?
+max conns maintained on server side?
+
+
 1. tests
 2. sstables
 3. writing to comit ahead log

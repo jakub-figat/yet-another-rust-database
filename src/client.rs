@@ -21,9 +21,9 @@ async fn main() {
     };
 
     let mut session = Session::new(addr).await;
-    session.insert(user.clone()).await.unwrap();
+    // session.insert(user.clone()).await.unwrap();
 
-    let mut session = Session::new(addr).await;
+    // let mut session = Session::new(addr).await;
     let user_from_db: User = session
         .get(user.hash_key.clone(), Varchar(user.sort_key.clone(), 1))
         .await

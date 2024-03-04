@@ -5,34 +5,42 @@ use crate::thread_channels::{
 };
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
-use monoio::io::{AsyncReadRent, AsyncWriteRentExt};
+use monoio::io::AsyncReadRentExt;
 use monoio::net::TcpStream;
-use protobuf::Message;
-use protos::util::client_error_to_proto_response;
 use protos::{BatchResponse, ProtoResponse, ProtoResponseData};
 use std::sync::Arc;
 use storage::{Row, SkipList};
 
+pub enum HandlerError {
+    Client(String),
+    Server(String),
+}
+
 pub async fn receive_from_tcp(
-    mut connection: TcpStream,
-    buffer: Vec<u8>,
+    stream: &mut TcpStream,
     current_partition: usize,
     channels: Vec<Arc<Mutex<ThreadChannel>>>,
     memtable: Arc<Mutex<SkipList<Row>>>,
-) -> Vec<u8> {
+) -> Result<ProtoResponse, HandlerError> {
     tracing::info!("Incoming request on thread {}", current_partition);
 
-    let (_, mut buffer) = connection.read(buffer).await;
-    let request = parse_request_from_bytes(&mut buffer);
-    if let Err(error) = request {
-        tracing::warn!("Invalid request on thread {}", current_partition);
-        let proto_response = client_error_to_proto_response(error);
-        let bytes = proto_response.write_to_bytes().unwrap();
-        write_to_tcp(connection, bytes).await;
-        return buffer;
-    }
+    let request_size = stream.read_u32().await.map_err(|e| {
+        HandlerError::Server(format!("Failed to parse request size: {}", e.to_string()))
+    })?;
 
-    match request.unwrap() {
+    let buffer = vec![0u8; request_size as usize];
+    let (result, mut buffer) = stream.read_exact(buffer).await;
+    result.map_err(|e| HandlerError::Server(e.to_string()))?;
+
+    let request = parse_request_from_bytes(&mut buffer).map_err(|e| {
+        HandlerError::Client(format!(
+            "Invalid request on thread {}: {}",
+            current_partition,
+            e.to_string()
+        ))
+    })?;
+
+    let proto_response = match request {
         Request::Command(command) => {
             let target_partition = get_command_target_partition(&command, channels.len());
             let response = match target_partition == current_partition {
@@ -48,11 +56,7 @@ pub async fn receive_from_tcp(
                     channel.receiver.next().await.unwrap()
                 }
             };
-            write_to_tcp(
-                connection,
-                response.to_proto_response().write_to_bytes().unwrap(),
-            )
-            .await;
+            response.to_proto_response()
         }
         Request::Batch(commands) => {
             let responses = send_batches(commands, channels.clone()).await;
@@ -65,18 +69,12 @@ pub async fn receive_from_tcp(
 
             let mut proto_response = ProtoResponse::new();
             proto_response.data = Some(ProtoResponseData::Batch(batch_response));
-
-            write_to_tcp(connection, proto_response.write_to_bytes().unwrap()).await;
+            proto_response
         }
     };
-    tracing::info!("Request on thread {} handled", current_partition);
-    buffer
-}
 
-async fn write_to_tcp(mut connection: TcpStream, bytes: Vec<u8>) {
-    if let (Err(error), _) = connection.write_all(bytes).await {
-        tracing::error!("Couldn't write response to tcp, {}", error);
-    }
+    tracing::info!("Request on thread {} handled", current_partition);
+    Ok(proto_response)
 }
 
 pub async fn handle_command(

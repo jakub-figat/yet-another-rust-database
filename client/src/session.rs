@@ -33,10 +33,10 @@ impl Session {
             connections: HashMap::from([(0, Mutex::new(stream))]),
         };
 
-        let starting_port = address.port() + 1;
+        let starting_port = address.port();
         let last_port = starting_port + num_of_threads;
 
-        for (partition, port) in (starting_port..last_port).enumerate() {
+        for (partition, port) in (starting_port..last_port).enumerate().skip(1) {
             let new_address = SocketAddrV4::new(address.ip().clone(), port);
             let stream = TcpStream::connect(new_address)
                 .await

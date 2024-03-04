@@ -10,16 +10,14 @@ use std::collections::HashMap;
 use std::net::SocketAddrV4;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 
 pub struct Session {
-    connections: HashMap<usize, Vec<TcpStream>>,
+    connections: HashMap<usize, Mutex<TcpStream>>,
 }
 
 impl Session {
-    pub async fn new(
-        address: SocketAddrV4,
-        connections_per_thread: usize,
-    ) -> Result<Session, String> {
+    pub async fn new(address: SocketAddrV4) -> Result<Session, String> {
         let mut stream = TcpStream::connect(address)
             .await
             .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
@@ -32,37 +30,18 @@ impl Session {
 
         let num_of_threads = buffer[0] as u16;
         let mut session = Session {
-            connections: (0..num_of_threads)
-                .map(|partition| {
-                    (
-                        partition as usize,
-                        Vec::with_capacity(connections_per_thread),
-                    )
-                })
-                .collect(),
+            connections: HashMap::from([(0, Mutex::new(stream))]),
         };
-        session.connections.get_mut(&0).unwrap().push(stream);
 
-        let starting_port = address.port();
+        let starting_port = address.port() + 1;
         let last_port = starting_port + num_of_threads;
 
-        for (thread_number, port) in (starting_port..last_port).enumerate() {
-            let start = match port == starting_port {
-                true => 1,
-                false => 0,
-            };
-
+        for (partition, port) in (starting_port..last_port).enumerate() {
             let new_address = SocketAddrV4::new(address.ip().clone(), port);
-            for _ in start..connections_per_thread {
-                let stream = TcpStream::connect(new_address)
-                    .await
-                    .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
-                session
-                    .connections
-                    .get_mut(&thread_number)
-                    .unwrap()
-                    .push(stream);
-            }
+            let stream = TcpStream::connect(new_address)
+                .await
+                .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
+            session.connections.insert(partition, Mutex::new(stream));
         }
 
         Ok(session)
@@ -151,12 +130,7 @@ impl Session {
         let request_bytes = proto_request.write_to_bytes().unwrap();
         let request_size_prefix = (request_bytes.len() as u32).to_be_bytes();
 
-        let stream = self
-            .connections
-            .get_mut(&partition)
-            .unwrap()
-            .get_mut(0)
-            .unwrap();
+        let mut stream = self.connections[&partition].lock().await;
 
         stream
             .write_all(&request_size_prefix)

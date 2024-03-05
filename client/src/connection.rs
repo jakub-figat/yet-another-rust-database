@@ -1,4 +1,5 @@
 use crate::model::Model;
+use crate::pool::ConnectionPool;
 use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use protobuf::Message;
@@ -8,26 +9,70 @@ use protos::{
 };
 use std::collections::HashMap;
 use std::net::SocketAddrV4;
+use std::sync::Weak;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::OwnedSemaphorePermit;
 
-pub struct Session {
-    connections: HashMap<usize, TcpStream>,
-    pub semaphore_permit: Option<OwnedSemaphorePermit>,
+pub struct Connection {
+    pub inner: Option<ConnectionInner>,
+    pub pool: Option<Weak<ConnectionPool>>,
 }
 
-impl Session {
-    pub async fn new(address: SocketAddrV4) -> Result<Session, String> {
+impl Connection {
+    pub async fn new(addr: SocketAddrV4) -> Result<Connection, String> {
+        Ok(Connection {
+            inner: Some(ConnectionInner::new(addr).await?),
+            pool: None,
+        })
+    }
+
+    pub fn new_for_pool(inner: ConnectionInner, pool: Weak<ConnectionPool>) -> Connection {
+        Connection {
+            inner: Some(inner),
+            pool: Some(pool),
+        }
+    }
+
+    pub async fn get<T: Model>(
+        &mut self,
+        hash_key: String,
+        sort_key: Value,
+    ) -> Result<Option<T>, String> {
+        self.inner.as_mut().unwrap().get(hash_key, sort_key).await
+    }
+
+    pub async fn insert<T: Model>(&mut self, instance: T) -> Result<(), String> {
+        self.inner.as_mut().unwrap().insert(instance).await
+    }
+
+    pub async fn delete(
+        &mut self,
+        hash_key: String,
+        sort_key: Value,
+        table_name: String,
+    ) -> Result<Option<()>, String> {
+        self.inner
+            .as_mut()
+            .unwrap()
+            .delete(hash_key, sort_key, table_name)
+            .await
+    }
+}
+
+pub struct ConnectionInner {
+    streams: HashMap<usize, TcpStream>,
+}
+
+impl ConnectionInner {
+    pub async fn new(address: SocketAddrV4) -> Result<ConnectionInner, String> {
         let mut stream = TcpStream::connect(address)
             .await
             .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
 
         let num_of_threads = stream.read_u32().await.map_err(|e| e.to_string())?;
 
-        let mut session = Session {
-            connections: HashMap::from([(0, stream)]),
-            semaphore_permit: None,
+        let mut session = ConnectionInner {
+            streams: HashMap::from([(0, stream)]),
         };
 
         let starting_port = address.port();
@@ -39,18 +84,18 @@ impl Session {
                 .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
 
             stream.read_u32().await.unwrap();
-            session.connections.insert(partition, stream);
+            session.streams.insert(partition, stream);
         }
 
         Ok(session)
     }
 
-    pub async fn get<T: Model>(
+    async fn get<T: Model>(
         &mut self,
         hash_key: String,
         sort_key: Value,
     ) -> Result<Option<T>, String> {
-        let partition = get_hash_key_target_partition(&hash_key, self.connections.len());
+        let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
 
         let mut get_request = GetRequest::new();
         get_request.hash_key = hash_key;
@@ -71,8 +116,8 @@ impl Session {
             }))
     }
 
-    pub async fn insert<T: Model>(&mut self, instance: T) -> Result<(), String> {
-        let partition = get_hash_key_target_partition(&instance.hash_key(), self.connections.len());
+    async fn insert<T: Model>(&mut self, instance: T) -> Result<(), String> {
+        let partition = get_hash_key_target_partition(&instance.hash_key(), self.streams.len());
         let insert_request = instance.to_insert_request();
 
         let mut request = ProtoRequest::new();
@@ -90,13 +135,13 @@ impl Session {
         }
     }
 
-    pub async fn delete(
+    async fn delete(
         &mut self,
         hash_key: String,
         sort_key: Value,
         table_name: String,
     ) -> Result<Option<()>, String> {
-        let partition = get_hash_key_target_partition(&hash_key, self.connections.len());
+        let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
 
         let mut delete_request = DeleteRequest::new();
         delete_request.hash_key = hash_key;
@@ -128,7 +173,7 @@ impl Session {
         let request_bytes = proto_request.write_to_bytes().unwrap();
         let request_size_prefix = (request_bytes.len() as u32).to_be_bytes();
 
-        let stream = self.connections.get_mut(&partition).unwrap();
+        let stream = self.streams.get_mut(&partition).unwrap();
 
         stream
             .write_all(&request_size_prefix)
@@ -147,5 +192,15 @@ impl Session {
             .map_err(|e| e.to_string())?;
 
         ProtoResponse::parse_from_bytes(&buffer).map_err(|e| e.to_string())
+    }
+}
+
+impl Drop for Connection {
+    fn drop(&mut self) {
+        if let Some(pool_ref) = self.pool.take() {
+            if let Some(pool) = pool_ref.upgrade() {
+                pool.put_back(self.inner.take().unwrap());
+            }
+        }
     }
 }

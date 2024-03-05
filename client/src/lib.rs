@@ -1,6 +1,6 @@
+mod connection;
 mod model;
 pub mod pool;
-mod session;
 
+pub use connection::Connection;
 pub use model::Model;
-pub use session::Session;

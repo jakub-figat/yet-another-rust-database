@@ -8,33 +8,46 @@ use protos::util::{
 use protos::{DeleteRequest, GetResponse, InsertRequest};
 use std::net::SocketAddrV4;
 use std::str::FromStr;
-use std::thread;
-use std::time::Duration;
+use std::time::Instant;
+use tokio::task::JoinSet;
 
 #[tokio::main]
 async fn main() {
-    let addr = SocketAddrV4::from_str("0.0.0.0:29800").unwrap();
+    let mut join_set = JoinSet::new();
+    let total_num_of_objects = 100_000;
+    let parallelism = 20;
+    let objects_per_future = total_num_of_objects / parallelism;
 
-    let user = User {
-        hash_key: "1".to_string(),
-        sort_key: "2".to_string(),
-        name: "3".to_string(),
-        last_name: "4".to_string(),
-    };
+    for num in 0..parallelism {
+        join_set.spawn(async move {
+            let addr = SocketAddrV4::from_str("0.0.0.0:29800").unwrap();
+            let users: Vec<_> = (num * objects_per_future..(num + 1) * objects_per_future)
+                .map(|key| User {
+                    hash_key: key.to_string(),
+                    sort_key: key.to_string(),
+                    name: "aaa".to_string(),
+                })
+                .collect();
 
-    let mut session = Session::new(addr).await.unwrap();
-    session.insert(user.clone()).await.unwrap();
+            let mut session = Session::new(addr).await.unwrap();
 
-    loop {
-        thread::sleep(Duration::from_secs(1));
-        let user_from_db: User = session
-            .get(user.hash_key.clone(), Varchar(user.sort_key.clone(), 1))
-            .await
-            .unwrap()
-            .unwrap();
-        println!("{:?}", user_from_db);
+            for user in users {
+                session.insert(user).await.unwrap();
+            }
+
+            for key in num * objects_per_future..(num + 1) * objects_per_future {
+                session
+                    .get::<User>(key.to_string(), Varchar(key.to_string(), 1))
+                    .await
+                    .unwrap()
+                    .unwrap();
+            }
+        });
     }
-    // TODO client conn pool, server max conns/futures
+
+    let start = Instant::now();
+    while join_set.join_next().await.is_some() {}
+    println!("done, {}ms", start.elapsed().as_millis());
 }
 
 #[derive(DatabaseModel, Clone, Debug)]
@@ -42,5 +55,4 @@ pub struct User {
     pub hash_key: String,
     pub sort_key: String,
     pub name: String,
-    pub last_name: String,
 }

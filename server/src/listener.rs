@@ -17,7 +17,7 @@ static TCP_STARTING_PORT: usize = 29800;
 
 pub fn run_listener_threads(num_of_threads: usize) {
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().with_filter(filter::LevelFilter::INFO))
+        .with(tracing_subscriber::fmt::layer().with_filter(filter::LevelFilter::WARN))
         .init();
 
     let mut channels = Vec::with_capacity(num_of_threads);

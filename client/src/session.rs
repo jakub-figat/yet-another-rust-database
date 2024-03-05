@@ -38,9 +38,11 @@ impl Session {
 
         for (partition, port) in (starting_port..last_port).enumerate().skip(1) {
             let new_address = SocketAddrV4::new(address.ip().clone(), port);
-            let stream = TcpStream::connect(new_address)
+            let mut stream = TcpStream::connect(new_address)
                 .await
                 .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
+
+            stream.read_exact(&mut [0u8; 1]).await.unwrap();
             session.connections.insert(partition, Mutex::new(stream));
         }
 
@@ -143,7 +145,6 @@ impl Session {
 
         let response_size = stream.read_u32().await.map_err(|e| e.to_string())?;
         let mut buffer = vec![0u8; response_size as usize];
-        // TODO: timeout
         stream
             .read_exact(&mut buffer)
             .await

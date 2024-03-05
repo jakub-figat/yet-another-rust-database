@@ -13,11 +13,11 @@ use tokio::task::JoinSet;
 
 #[tokio::main]
 async fn main() {
-    let mut join_set = JoinSet::new();
     let total_num_of_objects = 100_000;
-    let parallelism = 20;
+    let parallelism = 10;
     let objects_per_future = total_num_of_objects / parallelism;
 
+    let mut join_set = JoinSet::new();
     for num in 0..parallelism {
         join_set.spawn(async move {
             let addr = SocketAddrV4::from_str("0.0.0.0:29800").unwrap();
@@ -30,7 +30,6 @@ async fn main() {
                 .collect();
 
             let mut session = Session::new(addr).await.unwrap();
-
             for user in users {
                 session.insert(user).await.unwrap();
             }
@@ -44,9 +43,10 @@ async fn main() {
             }
         });
     }
-
     let start = Instant::now();
-    while join_set.join_next().await.is_some() {}
+    while let Some(result) = join_set.join_next().await {
+        result.unwrap();
+    }
     println!("done, {}ms", start.elapsed().as_millis());
 }
 

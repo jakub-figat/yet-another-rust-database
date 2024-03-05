@@ -41,6 +41,7 @@ pub fn run_listener_threads(num_of_threads: usize) {
 
         thread::spawn(move || {
             let mut runtime = monoio::RuntimeBuilder::<FusionDriver>::new()
+                .with_entries(2048)
                 .build()
                 .unwrap();
 
@@ -69,10 +70,10 @@ async fn thread_main(
     tracing::info!("Listening on port {} on thread {}", tcp_port, partition);
 
     let (mut response_sender, mut command_receiver) = inner_channel;
-
     loop {
         monoio::select! {
-            Ok((stream, _)) = tcp_listener.accept() => {
+            something = tcp_listener.accept() => {
+                let (stream, _) = something.unwrap();
                 monoio::spawn(handle_tcp_stream(stream, partition, num_of_threads, channels.clone(), memtable.clone()));
             }
             Some(command) = command_receiver.next() => {

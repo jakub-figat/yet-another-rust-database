@@ -27,7 +27,10 @@ pub async fn handle_tcp_stream(
     memtable: Arc<Mutex<SkipList<Row>>>,
 ) {
     tracing::info!("Accepting connection on thread {}", partition);
-    if let (Err(error), _) = stream.write_all(Vec::from([num_of_threads as u8])).await {
+
+    let num_of_threads_bytes = (num_of_threads as u32).to_be_bytes().to_vec();
+
+    if let (Err(error), _) = stream.write_all(num_of_threads_bytes).await {
         tracing::error!("Failed to send num_of_threads: {}", error.to_string());
         return;
     }

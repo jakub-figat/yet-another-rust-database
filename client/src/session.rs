@@ -22,27 +22,21 @@ impl Session {
             .await
             .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
 
-        let mut buffer = [0u8; 1];
-        stream
-            .read_exact(&mut buffer)
-            .await
-            .map_err(|e| e.to_string())?;
+        let num_of_threads = stream.read_u32().await.map_err(|e| e.to_string())?;
 
-        let num_of_threads = buffer[0] as u16;
         let mut session = Session {
             connections: HashMap::from([(0, Mutex::new(stream))]),
         };
 
         let starting_port = address.port();
-        let last_port = starting_port + num_of_threads;
-
+        let last_port = starting_port + num_of_threads as u16;
         for (partition, port) in (starting_port..last_port).enumerate().skip(1) {
             let new_address = SocketAddrV4::new(address.ip().clone(), port);
             let mut stream = TcpStream::connect(new_address)
                 .await
                 .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
 
-            stream.read_exact(&mut [0u8; 1]).await.unwrap();
+            stream.read_u32().await.unwrap();
             session.connections.insert(partition, Mutex::new(stream));
         }
 

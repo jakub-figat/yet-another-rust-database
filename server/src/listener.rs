@@ -72,9 +72,10 @@ async fn thread_main(
     let (mut response_sender, mut command_receiver) = inner_channel;
     loop {
         monoio::select! {
-            something = tcp_listener.accept() => {
-                let (stream, _) = something.unwrap();
-                monoio::spawn(handle_tcp_stream(stream, partition, num_of_threads, channels.clone(), memtable.clone()));
+            stream = tcp_listener.accept() => {
+                monoio::spawn(handle_tcp_stream(
+                    stream.unwrap().0, partition, num_of_threads, channels.clone(), memtable.clone())
+                );
             }
             Some(command) = command_receiver.next() => {
                 let response = handle_command(command, memtable.clone()).await;

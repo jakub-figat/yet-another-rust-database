@@ -10,10 +10,11 @@ use std::collections::HashMap;
 use std::net::SocketAddrV4;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::Mutex;
+use tokio::sync::OwnedSemaphorePermit;
 
 pub struct Session {
-    connections: HashMap<usize, Mutex<TcpStream>>,
+    connections: HashMap<usize, TcpStream>,
+    pub semaphore_permit: Option<OwnedSemaphorePermit>,
 }
 
 impl Session {
@@ -25,7 +26,8 @@ impl Session {
         let num_of_threads = stream.read_u32().await.map_err(|e| e.to_string())?;
 
         let mut session = Session {
-            connections: HashMap::from([(0, Mutex::new(stream))]),
+            connections: HashMap::from([(0, stream)]),
+            semaphore_permit: None,
         };
 
         let starting_port = address.port();
@@ -37,7 +39,7 @@ impl Session {
                 .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
 
             stream.read_u32().await.unwrap();
-            session.connections.insert(partition, Mutex::new(stream));
+            session.connections.insert(partition, stream);
         }
 
         Ok(session)
@@ -126,7 +128,7 @@ impl Session {
         let request_bytes = proto_request.write_to_bytes().unwrap();
         let request_size_prefix = (request_bytes.len() as u32).to_be_bytes();
 
-        let mut stream = self.connections[&partition].lock().await;
+        let stream = self.connections.get_mut(&partition).unwrap();
 
         stream
             .write_all(&request_size_prefix)

@@ -13,6 +13,5 @@ message Value {
         bool boolean = 8;
         string decimal = 9;
         string datetime = 10;
-        bytes null = 11;
     }
 }

@@ -3,7 +3,9 @@ use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
 
-use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, Type};
+use syn::{
+    parse_macro_input, Data, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type,
+};
 
 #[proc_macro_derive(DatabaseModel)]
 pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -225,6 +227,15 @@ fn parse_from_value_quote(field: &Field) -> TokenStream {
                 Boolean(val) => val,
             }
         }
+        "Option" => {
+            let inner_type = get_option_generic_type(field);
+            let inner_type_value_quote = parse_from_value_quote_for_option(&inner_type);
+
+            quote! {
+                #inner_type_value_quote
+                Null => None,
+            }
+        }
         // TODO
         other_type => panic!("Unsupported '{}' field type", other_type),
     }
@@ -241,37 +252,48 @@ fn parse_to_value_quote(field: &Field) -> TokenStream {
         }
         "i32" => {
             quote! {
-                let value = Int32(self.#field_name)
+                let value = Int32(self.#field_name);
             }
         }
         "i64" => {
             quote! {
-                let value = Int64(self.#field_name)
+                let value = Int64(self.#field_name);
             }
         }
         "u32" => {
             quote! {
-                let value = Unsigned32(self.#field_name)
+                let value = Unsigned32(self.#field_name);
             }
         }
         "u64" => {
             quote! {
-                let value = Unsigned64(self.#field_name)
+                let value = Unsigned64(self.#field_name);
             }
         }
         "f32" => {
             quote! {
-                let value = Float32(self.#field_name)
+                let value = Float32(self.#field_name);
             }
         }
         "f64" => {
             quote! {
-                let value = Float64(self.#field_name)
+                let value = Float64(self.#field_name);
             }
         }
         "bool" => {
             quote! {
-                let value = Boolean(self.#field_name)
+                let value = Boolean(self.#field_name);
+            }
+        }
+        "Option" => {
+            let inner_type = get_option_generic_type(field);
+            let inner_type_value_quote = parse_to_value_quote_for_option_inner(&inner_type);
+
+            quote! {
+                let value = match &self.#field_name {
+                    Some(inner) => #inner_type_value_quote
+                    None => Null
+                };
             }
         }
         // TODO
@@ -281,7 +303,127 @@ fn parse_to_value_quote(field: &Field) -> TokenStream {
 
 fn get_field_type(field: &Field) -> String {
     match &field.ty {
-        Type::Path(type_path) => type_path.into_token_stream().to_string(),
+        Type::Path(type_path) => {
+            let last_segment = &type_path.path.segments.first().unwrap();
+            last_segment.ident.to_string()
+        }
         _ => panic!("Invalid field type"),
+    }
+}
+
+fn get_option_generic_type(field: &Field) -> String {
+    match &field.ty {
+        Type::Path(type_path) => {
+            let last_segment = &type_path.path.segments.first().unwrap();
+            match last_segment.arguments {
+                PathArguments::AngleBracketed(ref generics) => {
+                    if generics.args.len() != 1 {
+                        panic!("Invalid number of generics inside Option, should be 1");
+                    }
+
+                    match &generics.args[0] {
+                        GenericArgument::Type(inner_type) => {
+                            inner_type.into_token_stream().to_string()
+                        }
+                        _ => panic!("Invalid generic type"),
+                    }
+                }
+                _ => panic!("Invalid Option arguments"),
+            }
+        }
+        _ => panic!("Invalid field type"),
+    }
+}
+
+fn parse_from_value_quote_for_option(field_type: &str) -> TokenStream {
+    match field_type {
+        "String" => {
+            quote! {
+                Varchar(val, _) => Some(val),
+            }
+        }
+        "i32" => {
+            quote! {
+                Int32(val) => Some(val),
+            }
+        }
+        "i64" => {
+            quote! {
+                Int64(val) => Some(val),
+            }
+        }
+        "u32" => {
+            quote! {
+                Unsigned32(val) => Some(val),
+            }
+        }
+        "u64" => {
+            quote! {
+                Unsigned64(val) => Some(val),
+            }
+        }
+        "f32" => {
+            quote! {
+                Float32(val) => Some(val),
+            }
+        }
+        "f64" => {
+            quote! {
+                Float64(val) => Some(val),
+            }
+        }
+        "bool" => {
+            quote! {
+                Boolean(val) => Some(val),
+            }
+        }
+        // TODO
+        other_type => panic!("Unsupported '{}' field type", other_type),
+    }
+}
+
+fn parse_to_value_quote_for_option_inner(field_type: &str) -> TokenStream {
+    match field_type {
+        "String" => {
+            quote! {
+                Varchar(inner.clone(), 1),
+            }
+        }
+        "i32" => {
+            quote! {
+                Int32(inner),
+            }
+        }
+        "i64" => {
+            quote! {
+                Int64(inner),
+            }
+        }
+        "u32" => {
+            quote! {
+                Unsigned32(inner),
+            }
+        }
+        "u64" => {
+            quote! {
+                Unsigned64(inner),
+            }
+        }
+        "f32" => {
+            quote! {
+                Float32(inner),
+            }
+        }
+        "f64" => {
+            quote! {
+                Float64(inner),
+            }
+        }
+        "bool" => {
+            quote! {
+                Boolean(inner),
+            }
+        }
+        other_type => panic!("Unsupported '{}' field type", other_type),
     }
 }

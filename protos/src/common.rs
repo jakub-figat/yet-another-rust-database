@@ -368,57 +368,8 @@ impl Value {
         }
     }
 
-    // bytes null = 11;
-
-    pub fn null(&self) -> &[u8] {
-        match self.data {
-            ::std::option::Option::Some(value::Data::Null(ref v)) => v,
-            _ => &[],
-        }
-    }
-
-    pub fn clear_null(&mut self) {
-        self.data = ::std::option::Option::None;
-    }
-
-    pub fn has_null(&self) -> bool {
-        match self.data {
-            ::std::option::Option::Some(value::Data::Null(..)) => true,
-            _ => false,
-        }
-    }
-
-    // Param is passed by value, moved
-    pub fn set_null(&mut self, v: ::std::vec::Vec<u8>) {
-        self.data = ::std::option::Option::Some(value::Data::Null(v))
-    }
-
-    // Mutable pointer to the field.
-    pub fn mut_null(&mut self) -> &mut ::std::vec::Vec<u8> {
-        if let ::std::option::Option::Some(value::Data::Null(_)) = self.data {
-        } else {
-            self.data = ::std::option::Option::Some(value::Data::Null(::std::vec::Vec::new()));
-        }
-        match self.data {
-            ::std::option::Option::Some(value::Data::Null(ref mut v)) => v,
-            _ => panic!(),
-        }
-    }
-
-    // Take field
-    pub fn take_null(&mut self) -> ::std::vec::Vec<u8> {
-        if self.has_null() {
-            match self.data.take() {
-                ::std::option::Option::Some(value::Data::Null(v)) => v,
-                _ => panic!(),
-            }
-        } else {
-            ::std::vec::Vec::new()
-        }
-    }
-
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(11);
+        let mut fields = ::std::vec::Vec::with_capacity(10);
         let mut oneofs = ::std::vec::Vec::with_capacity(1);
         fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
             "varchar",
@@ -480,12 +431,6 @@ impl Value {
             Value::datetime,
             Value::set_datetime,
         ));
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
-            "null",
-            Value::has_null,
-            Value::null,
-            Value::set_null,
-        ));
         oneofs.push(value::Data::generated_oneof_descriptor_data());
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<Value>(
             "Value",
@@ -535,9 +480,6 @@ impl ::protobuf::Message for Value {
                 82 => {
                     self.data = ::std::option::Option::Some(value::Data::Datetime(is.read_string()?));
                 },
-                90 => {
-                    self.data = ::std::option::Option::Some(value::Data::Null(is.read_bytes()?));
-                },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
                 },
@@ -582,9 +524,6 @@ impl ::protobuf::Message for Value {
                 &value::Data::Datetime(ref v) => {
                     my_size += ::protobuf::rt::string_size(10, &v);
                 },
-                &value::Data::Null(ref v) => {
-                    my_size += ::protobuf::rt::bytes_size(11, &v);
-                },
             };
         }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
@@ -625,9 +564,6 @@ impl ::protobuf::Message for Value {
                 &value::Data::Datetime(ref v) => {
                     os.write_string(10, v)?;
                 },
-                &value::Data::Null(ref v) => {
-                    os.write_bytes(11, v)?;
-                },
             };
         }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
@@ -647,7 +583,6 @@ impl ::protobuf::Message for Value {
     }
 
     fn clear(&mut self) {
-        self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
@@ -714,8 +649,6 @@ pub mod value {
         Decimal(::std::string::String),
         // @@protoc_insertion_point(oneof_field:Value.datetime)
         Datetime(::std::string::String),
-        // @@protoc_insertion_point(oneof_field:Value.null)
-        Null(::std::vec::Vec<u8>),
     }
 
     impl ::protobuf::Oneof for Data {
@@ -736,7 +669,7 @@ pub mod value {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x0ccommon.proto\"\xc3\x02\n\x05Value\x12\x1a\n\x07varchar\x18\x01\x20\
+    \n\x0ccommon.proto\"\xad\x02\n\x05Value\x12\x1a\n\x07varchar\x18\x01\x20\
     \x01(\tH\0R\x07varchar\x12\x16\n\x05int32\x18\x02\x20\x01(\x05H\0R\x05in\
     t32\x12\x16\n\x05int64\x18\x03\x20\x01(\x03H\0R\x05int64\x12\x20\n\nunsi\
     gned32\x18\x04\x20\x01(\rH\0R\nunsigned32\x12\x20\n\nunsigned64\x18\x05\
@@ -744,8 +677,7 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \0R\x07float32\x12\x1a\n\x07float64\x18\x07\x20\x01(\x01H\0R\x07float64\
     \x12\x1a\n\x07boolean\x18\x08\x20\x01(\x08H\0R\x07boolean\x12\x1a\n\x07d\
     ecimal\x18\t\x20\x01(\tH\0R\x07decimal\x12\x1c\n\x08datetime\x18\n\x20\
-    \x01(\tH\0R\x08datetime\x12\x14\n\x04null\x18\x0b\x20\x01(\x0cH\0R\x04nu\
-    llB\x06\n\x04datab\x06proto3\
+    \x01(\tH\0R\x08datetimeB\x06\n\x04datab\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file

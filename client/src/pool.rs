@@ -9,7 +9,7 @@ use tokio::time::sleep;
 
 pub struct ConnectionPool {
     connections: Mutex<VecDeque<Connection>>,
-    acquire_timeout: u64,
+    acquire_timeout: Duration,
     pub semaphore: Semaphore,
 }
 
@@ -17,7 +17,7 @@ impl ConnectionPool {
     pub async fn new(
         addr: SocketAddrV4,
         pool_size: usize,
-        timeout: u64,
+        timeout: Duration,
     ) -> Result<Arc<ConnectionPool>, ConnectionError> {
         let pool = Arc::new(ConnectionPool {
             connections: Mutex::new(VecDeque::with_capacity(pool_size)),
@@ -48,7 +48,7 @@ impl ConnectionPool {
 
     pub async fn acquire(&self) -> Result<Connection, String> {
         let permit = tokio::select! {
-            _ = sleep(Duration::from_millis(self.acquire_timeout)) => Err("Connection pool acquire timeout expired".to_string()),
+            _ = sleep(self.acquire_timeout) => Err("Connection pool acquire timeout expired".to_string()),
             permit = self.semaphore.acquire() => {
                 permit.map_err(|e| e.to_string())
             }

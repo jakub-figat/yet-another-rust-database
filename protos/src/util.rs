@@ -4,38 +4,40 @@ use common::value::Value::*;
 use protobuf::MessageField;
 
 pub fn parse_value_from_proto(value: ProtoValue) -> Value {
-    match value.data.unwrap() {
-        ProtoValueData::Varchar(data) => Varchar(data, 1), // TODO
-        ProtoValueData::Int32(data) => Int32(data),
-        ProtoValueData::Int64(data) => Int64(data),
-        ProtoValueData::Unsigned32(data) => Unsigned32(data),
-        ProtoValueData::Unsigned64(data) => Unsigned64(data),
-        ProtoValueData::Float32(data) => Float32(data),
-        ProtoValueData::Float64(data) => Float64(data),
-        ProtoValueData::Boolean(data) => Boolean(data),
-        ProtoValueData::Decimal(data) => Decimal(data, 1, 1), // TODO
-        ProtoValueData::Datetime(data) => Datetime(data),     // TODO
-        ProtoValueData::Null(_) => Null,
+    match value.data {
+        Some(data) => match data {
+            ProtoValueData::Varchar(data) => Varchar(data, 1), // TODO
+            ProtoValueData::Int32(data) => Int32(data),
+            ProtoValueData::Int64(data) => Int64(data),
+            ProtoValueData::Unsigned32(data) => Unsigned32(data),
+            ProtoValueData::Unsigned64(data) => Unsigned64(data),
+            ProtoValueData::Float32(data) => Float32(data),
+            ProtoValueData::Float64(data) => Float64(data),
+            ProtoValueData::Boolean(data) => Boolean(data),
+            ProtoValueData::Decimal(data) => Decimal(data, 1, 1), // TODO
+            ProtoValueData::Datetime(data) => Datetime(data),     // TODO
+        },
+        None => Null,
     }
 }
 
 pub fn parse_proto_from_value(value: Value) -> ProtoValue {
     let proto_enum_value = match value {
-        Varchar(data, _) => ProtoValueData::Varchar(data), // TODO
-        Int32(data) => ProtoValueData::Int32(data),
-        Int64(data) => ProtoValueData::Int64(data),
-        Unsigned32(data) => ProtoValueData::Unsigned32(data),
-        Unsigned64(data) => ProtoValueData::Unsigned64(data),
-        Float32(data) => ProtoValueData::Float32(data),
-        Float64(data) => ProtoValueData::Float64(data),
-        Boolean(data) => ProtoValueData::Boolean(data),
-        Decimal(data, _, _) => ProtoValueData::Decimal(data), // TODO
-        Datetime(data) => ProtoValueData::Datetime(data),     // TODO
-        Null => ProtoValueData::Null(vec![0u8; 0]),
+        Varchar(data, _) => Some(ProtoValueData::Varchar(data)), // TODO
+        Int32(data) => Some(ProtoValueData::Int32(data)),
+        Int64(data) => Some(ProtoValueData::Int64(data)),
+        Unsigned32(data) => Some(ProtoValueData::Unsigned32(data)),
+        Unsigned64(data) => Some(ProtoValueData::Unsigned64(data)),
+        Float32(data) => Some(ProtoValueData::Float32(data)),
+        Float64(data) => Some(ProtoValueData::Float64(data)),
+        Boolean(data) => Some(ProtoValueData::Boolean(data)),
+        Decimal(data, _, _) => Some(ProtoValueData::Decimal(data)), // TODO
+        Datetime(data) => Some(ProtoValueData::Datetime(data)),     // TODO
+        Null => None,
     };
 
     let mut proto_value = ProtoValue::new();
-    proto_value.data = Some(proto_enum_value);
+    proto_value.data = proto_enum_value;
     proto_value
 }
 

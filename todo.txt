@@ -1,17 +1,15 @@
+for 0.1.0 "alpha":
+1. nulls/variable length data types
+2. table schema
+3. sstables read/write
+4. compaction
+5. bloom filters
+
 for client:
-reuse tcp conn
-add message size when sending to tcp
-conn pooling on client
-multiple shards connections? (scylla fashion)
-nulls, errors, batches
 timeouts and retries?
-max conns maintained on server side?
 
-
+later:
 1. tests
-2. sstables
-3. writing to comit ahead log
-4. auth
-5. orm
-6. schemas
-7. connection pooling
+2. writing to commit ahead log
+3. auth
+4. batching?

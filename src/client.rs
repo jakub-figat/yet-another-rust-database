@@ -20,7 +20,7 @@ async fn main() {
     let objects_per_future = total_num_of_objects / parallelism;
 
     let addr = SocketAddrV4::from_str("0.0.0.0:29800").unwrap();
-    let connection_pool = ConnectionPool::new(addr, 10).await.unwrap();
+    let connection_pool = ConnectionPool::new(addr, 10, 1000).await.unwrap();
 
     let mut join_set = JoinSet::new();
     for num in 0..parallelism {
@@ -34,7 +34,7 @@ async fn main() {
 }
 
 async fn worker(connection_pool: Arc<ConnectionPool>, num: usize, objects_per_future: usize) {
-    let mut connection = connection_pool.acquire().await;
+    let mut connection = connection_pool.acquire().await.unwrap();
 
     let users: Vec<_> = (num * objects_per_future..(num + 1) * objects_per_future)
         .map(|key| User {

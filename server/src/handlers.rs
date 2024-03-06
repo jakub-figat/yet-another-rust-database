@@ -96,11 +96,12 @@ async fn listen_for_tcp_request(
     result.map_err(|e| HandlerError::Server(e.to_string()))?;
 
     let request = parse_request_from_bytes(&mut buffer).map_err(|e| {
-        HandlerError::Client(format!(
+        tracing::warn!(
             "Invalid request on thread {}: {}",
             current_partition,
             e.to_string()
-        ))
+        );
+        HandlerError::Client(format!("Invalid request: {}", e.to_string()))
     })?;
 
     let proto_response = match request {

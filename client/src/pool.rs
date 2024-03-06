@@ -1,19 +1,27 @@
-use crate::connection::{Connection, ConnectionInner};
+use crate::connection::{Connection, ConnectionError, ConnectionInner};
 use std::collections::VecDeque;
 use std::net::SocketAddrV4;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
+use tokio::time::sleep;
 
 pub struct ConnectionPool {
     connections: Mutex<VecDeque<Connection>>,
+    acquire_timeout: u64,
     pub semaphore: Semaphore,
 }
 
 impl ConnectionPool {
-    pub async fn new(addr: SocketAddrV4, pool_size: usize) -> Result<Arc<ConnectionPool>, String> {
+    pub async fn new(
+        addr: SocketAddrV4,
+        pool_size: usize,
+        timeout: u64,
+    ) -> Result<Arc<ConnectionPool>, ConnectionError> {
         let pool = Arc::new(ConnectionPool {
             connections: Mutex::new(VecDeque::with_capacity(pool_size)),
+            acquire_timeout: timeout,
             semaphore: Semaphore::new(pool_size),
         });
 
@@ -38,14 +46,19 @@ impl ConnectionPool {
         Ok(pool)
     }
 
-    pub async fn acquire(&self) -> Connection {
-        let permit = self.semaphore.acquire().await.unwrap();
+    pub async fn acquire(&self) -> Result<Connection, String> {
+        let permit = tokio::select! {
+            _ = sleep(Duration::from_millis(self.acquire_timeout)) => Err("Connection pool acquire timeout expired".to_string()),
+            permit = self.semaphore.acquire() => {
+                permit.map_err(|e| e.to_string())
+            }
+        }?;
 
         let mut connections = self.connections.lock().unwrap();
         let connection = connections.pop_front().unwrap();
 
         permit.forget();
-        connection
+        Ok(connection)
     }
 
     pub fn put_back(self: &Arc<Self>, connection_inner: ConnectionInner) {

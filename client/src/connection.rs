@@ -19,7 +19,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub async fn new(addr: SocketAddrV4) -> Result<Connection, String> {
+    pub async fn new(addr: SocketAddrV4) -> Result<Connection, ConnectionError> {
         Ok(Connection {
             inner: Some(ConnectionInner::new(addr).await?),
             pool: None,
@@ -37,11 +37,11 @@ impl Connection {
         &mut self,
         hash_key: String,
         sort_key: Value,
-    ) -> Result<Option<T>, String> {
+    ) -> Result<Option<T>, ConnectionError> {
         self.inner.as_mut().unwrap().get(hash_key, sort_key).await
     }
 
-    pub async fn insert<T: Model>(&mut self, instance: T) -> Result<(), String> {
+    pub async fn insert<T: Model>(&mut self, instance: T) -> Result<(), ConnectionError> {
         self.inner.as_mut().unwrap().insert(instance).await
     }
 
@@ -50,7 +50,7 @@ impl Connection {
         hash_key: String,
         sort_key: Value,
         table_name: String,
-    ) -> Result<Option<()>, String> {
+    ) -> Result<Option<()>, ConnectionError> {
         self.inner
             .as_mut()
             .unwrap()
@@ -63,13 +63,22 @@ pub struct ConnectionInner {
     streams: HashMap<usize, TcpStream>,
 }
 
-impl ConnectionInner {
-    pub async fn new(address: SocketAddrV4) -> Result<ConnectionInner, String> {
-        let mut stream = TcpStream::connect(address)
-            .await
-            .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
+#[derive(Debug)]
+pub enum ConnectionError {
+    Client(String),
+    Server(String),
+}
 
-        let num_of_threads = stream.read_u32().await.map_err(|e| e.to_string())?;
+impl ConnectionInner {
+    pub async fn new(address: SocketAddrV4) -> Result<ConnectionInner, ConnectionError> {
+        let mut stream = TcpStream::connect(address).await.map_err(|e| {
+            ConnectionError::Client(format!("Failed to connect to server: {}", e.to_string()))
+        })?;
+
+        let num_of_threads = stream
+            .read_u32()
+            .await
+            .map_err(|e| ConnectionError::Server(e.to_string()))?;
 
         let mut session = ConnectionInner {
             streams: HashMap::from([(0, stream)]),
@@ -79,11 +88,14 @@ impl ConnectionInner {
         let last_port = starting_port + num_of_threads as u16;
         for (partition, port) in (starting_port..last_port).enumerate().skip(1) {
             let new_address = SocketAddrV4::new(address.ip().clone(), port);
-            let mut stream = TcpStream::connect(new_address)
-                .await
-                .map_err(|e| format!("Failed to connect to server: {}", e.to_string()))?;
+            let mut stream = TcpStream::connect(new_address).await.map_err(|e| {
+                ConnectionError::Client(format!("Failed to connect to server: {}", e.to_string()))
+            })?;
 
-            stream.read_u32().await.unwrap();
+            stream
+                .read_u32()
+                .await
+                .map_err(|e| ConnectionError::Server(e.to_string()))?;
             session.streams.insert(partition, stream);
         }
 
@@ -94,7 +106,7 @@ impl ConnectionInner {
         &mut self,
         hash_key: String,
         sort_key: Value,
-    ) -> Result<Option<T>, String> {
+    ) -> Result<Option<T>, ConnectionError> {
         let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
 
         let mut get_request = GetRequest::new();
@@ -107,16 +119,24 @@ impl ConnectionInner {
 
         let proto_response = self.send_request(request, partition).await?;
 
-        // TODO: null handling?
-        Ok(proto_response
-            .data
-            .map(|proto_response_data| match proto_response_data {
-                ProtoResponseData::Get(get_response) => T::from_get_response(get_response),
+        match proto_response.data {
+            None => Ok(None),
+            Some(proto_response_data) => match proto_response_data {
+                ProtoResponseData::Get(get_response) => {
+                    Ok(Some(T::from_get_response(get_response)))
+                }
+                ProtoResponseData::ClientError(client_error) => {
+                    Err(ConnectionError::Client(client_error.detail))
+                }
+                ProtoResponseData::ServerError(server_error) => {
+                    Err(ConnectionError::Server(server_error.detail))
+                }
                 _ => panic!("Invalid proto response type"),
-            }))
+            },
+        }
     }
 
-    async fn insert<T: Model>(&mut self, instance: T) -> Result<(), String> {
+    async fn insert<T: Model>(&mut self, instance: T) -> Result<(), ConnectionError> {
         let partition = get_hash_key_target_partition(&instance.hash_key(), self.streams.len());
         let insert_request = instance.to_insert_request();
 
@@ -125,12 +145,17 @@ impl ConnectionInner {
 
         let proto_response = self.send_request(request, partition).await?;
 
-        // TODO, error handling?
         match proto_response.data.unwrap() {
             ProtoResponseData::Insert(insert_response) => match insert_response.okay {
                 true => Ok(()),
-                false => Err(String::from("Insert failed")),
+                false => Err(ConnectionError::Server(String::from("Insert failed"))),
             },
+            ProtoResponseData::ClientError(client_error) => {
+                Err(ConnectionError::Client(client_error.detail))
+            }
+            ProtoResponseData::ServerError(server_error) => {
+                Err(ConnectionError::Server(server_error.detail))
+            }
             _ => panic!("Invalid proto response type"),
         }
     }
@@ -140,7 +165,7 @@ impl ConnectionInner {
         hash_key: String,
         sort_key: Value,
         table_name: String,
-    ) -> Result<Option<()>, String> {
+    ) -> Result<Option<()>, ConnectionError> {
         let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
 
         let mut delete_request = DeleteRequest::new();
@@ -152,13 +177,18 @@ impl ConnectionInner {
         request.data = Some(ProtoRequestData::Delete(delete_request));
         let proto_response = self.send_request(request, partition).await?;
 
-        // TODO, error handling?
         match proto_response.data {
             Some(proto_response_data) => match proto_response_data {
                 ProtoResponseData::Delete(delete_response) => match delete_response.okay {
                     true => Ok(Some(())),
-                    false => Err(String::from("Insert failed")),
+                    false => Err(ConnectionError::Client(String::from("Insert failed"))),
                 },
+                ProtoResponseData::ClientError(client_error) => {
+                    Err(ConnectionError::Client(client_error.detail))
+                }
+                ProtoResponseData::ServerError(server_error) => {
+                    Err(ConnectionError::Server(server_error.detail))
+                }
                 _ => panic!("Invalid proto response type"),
             },
             None => Ok(None),
@@ -169,7 +199,7 @@ impl ConnectionInner {
         &mut self,
         proto_request: ProtoRequest,
         partition: usize,
-    ) -> Result<ProtoResponse, String> {
+    ) -> Result<ProtoResponse, ConnectionError> {
         let request_bytes = proto_request.write_to_bytes().unwrap();
         let request_size_prefix = (request_bytes.len() as u32).to_be_bytes();
 
@@ -178,20 +208,23 @@ impl ConnectionInner {
         stream
             .write_all(&request_size_prefix)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| ConnectionError::Client(e.to_string()))?;
         stream
             .write_all(&request_bytes)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| ConnectionError::Client(e.to_string()))?;
 
-        let response_size = stream.read_u32().await.map_err(|e| e.to_string())?;
+        let response_size = stream
+            .read_u32()
+            .await
+            .map_err(|e| ConnectionError::Client(e.to_string()))?;
         let mut buffer = vec![0u8; response_size as usize];
         stream
             .read_exact(&mut buffer)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| ConnectionError::Client(e.to_string()))?;
 
-        ProtoResponse::parse_from_bytes(&buffer).map_err(|e| e.to_string())
+        ProtoResponse::parse_from_bytes(&buffer).map_err(|e| ConnectionError::Client(e.to_string()))
     }
 }
 

@@ -1,149 +1,154 @@
 use common::partition::get_hash_key_target_partition;
 use common::value::Value;
-use futures::channel::mpsc;
-use futures::lock::Mutex;
-use futures::{SinkExt, StreamExt};
+use futures::channel::{mpsc, oneshot};
+use futures::SinkExt;
 use protos::util::{parse_message_field_from_value, parse_proto_from_value};
 use protos::{
-    BatchResponseItem, BatchResponseItemData, DeleteResponse, GetResponse, InsertResponse,
-    ProtoResponse, ProtoResponseData,
+    BatchResponse, BatchResponseItem, BatchResponseItemData, DeleteResponse, GetResponse,
+    InsertResponse, ProtoResponse, ProtoResponseData,
 };
-use std::sync::Arc;
 use storage::Row;
 
-pub type CommandSender = mpsc::UnboundedSender<ThreadCommand>;
-pub type CommandReceiver = mpsc::UnboundedReceiver<ThreadCommand>;
+pub type OperationSender = mpsc::UnboundedSender<(Vec<Operation>, OperationResponseSender)>;
+pub type OperationReceiver = mpsc::UnboundedReceiver<(Vec<Operation>, OperationResponseSender)>;
 
-pub type ResponseSender = mpsc::UnboundedSender<ThreadResponse>;
-pub type ResponseReceiver = mpsc::UnboundedReceiver<ThreadResponse>;
+pub type OperationResponseSender = oneshot::Sender<Vec<OperationResponse>>;
 
-pub struct ThreadChannel {
-    pub sender: CommandSender,
-    pub receiver: ResponseReceiver,
+#[derive(Debug)]
+pub enum Command {
+    Single(Operation),
+    Batch(Vec<Operation>),
 }
 
 #[derive(Debug)]
-pub enum ThreadCommand {
+pub enum Operation {
     Get(String, Value, String),
     Insert(String, Value, Vec<Value>, String),
     Delete(String, Value, String),
 }
 
-impl ThreadCommand {
+impl Operation {
     pub fn hash_key(&self) -> String {
         match self {
-            ThreadCommand::Get(hash_key, _, _) => hash_key.clone(),
-            ThreadCommand::Insert(hash_key, _, _, _) => hash_key.clone(),
-            ThreadCommand::Delete(hash_key, _, _) => hash_key.clone(),
+            Operation::Get(hash_key, _, _) => hash_key.clone(),
+            Operation::Insert(hash_key, _, _, _) => hash_key.clone(),
+            Operation::Delete(hash_key, _, _) => hash_key.clone(),
         }
     }
 }
 
 #[derive(Debug)]
-pub enum ThreadResponse {
+pub enum Response {
+    Single(OperationResponse),
+    Batch(Vec<OperationResponse>),
+}
+
+#[derive(Debug)]
+pub enum OperationResponse {
     Get(Option<Row>),
     Insert(Result<(), String>),
     Delete(Option<Row>),
 }
 
-impl ThreadResponse {
+impl Response {
     pub fn to_proto_response(self) -> ProtoResponse {
         let mut proto_response = ProtoResponse::new();
         let proto_response_data = match self {
-            ThreadResponse::Get(result) => result.map(|row| {
-                let mut get_response = GetResponse::new();
-                get_response.hash_key = row.hash_key;
-                get_response.sort_key = parse_message_field_from_value(row.sort_key);
-                get_response.values = row
-                    .values
+            Response::Single(operation_response) => match operation_response {
+                OperationResponse::Get(result) => result.map(|row| {
+                    let mut get_response = GetResponse::new();
+                    get_response.hash_key = row.hash_key;
+                    get_response.sort_key = parse_message_field_from_value(row.sort_key);
+                    get_response.values = row
+                        .values
+                        .into_iter()
+                        .map(|value| parse_proto_from_value(value))
+                        .collect();
+                    ProtoResponseData::Get(get_response)
+                }),
+                OperationResponse::Insert(result) => {
+                    let mut insert_response = InsertResponse::new();
+                    insert_response.okay = result.is_ok();
+                    Some(ProtoResponseData::Insert(insert_response))
+                }
+                OperationResponse::Delete(result) => {
+                    let mut delete_response = DeleteResponse::new();
+                    delete_response.okay = result.is_some();
+                    Some(ProtoResponseData::Delete(delete_response))
+                }
+            },
+            Response::Batch(operation_responses) => {
+                let mut batch_response = BatchResponse::new();
+
+                batch_response.items = operation_responses
                     .into_iter()
-                    .map(|value| parse_proto_from_value(value))
+                    .map(|operation_response| {
+                        let mut batch_response_item = BatchResponseItem::new();
+
+                        batch_response_item.item = match operation_response {
+                            OperationResponse::Get(result) => result.map(|row| {
+                                let mut get_response = GetResponse::new();
+                                get_response.hash_key = row.hash_key;
+                                get_response.sort_key =
+                                    parse_message_field_from_value(row.sort_key);
+                                get_response.values = row
+                                    .values
+                                    .into_iter()
+                                    .map(|value| parse_proto_from_value(value))
+                                    .collect();
+                                BatchResponseItemData::Get(get_response)
+                            }),
+                            OperationResponse::Insert(result) => {
+                                let mut insert_response = InsertResponse::new();
+                                insert_response.okay = result.is_ok();
+                                Some(BatchResponseItemData::Insert(insert_response))
+                            }
+                            OperationResponse::Delete(result) => {
+                                let mut delete_response = DeleteResponse::new();
+                                delete_response.okay = result.is_some();
+                                Some(BatchResponseItemData::Delete(delete_response))
+                            }
+                        };
+
+                        batch_response_item
+                    })
                     .collect();
-                ProtoResponseData::Get(get_response)
-            }),
-            ThreadResponse::Insert(result) => {
-                let mut insert_response = InsertResponse::new();
-                insert_response.okay = result.is_ok();
-                Some(ProtoResponseData::Insert(insert_response))
-            }
-            ThreadResponse::Delete(result) => {
-                let mut delete_response = DeleteResponse::new();
-                delete_response.okay = result.is_some();
-                Some(ProtoResponseData::Delete(delete_response))
+                Some(ProtoResponseData::Batch(batch_response))
             }
         };
 
         proto_response.data = proto_response_data;
         proto_response
     }
-
-    pub fn to_batch_response_item(self) -> BatchResponseItem {
-        let mut batch_response_item = BatchResponseItem::new();
-        let item_data = match self {
-            ThreadResponse::Get(result) => result.map(|row| {
-                let mut get_response = GetResponse::new();
-                get_response.hash_key = row.hash_key;
-                get_response.sort_key = parse_message_field_from_value(row.sort_key);
-                get_response.values = row
-                    .values
-                    .into_iter()
-                    .map(|value| parse_proto_from_value(value))
-                    .collect();
-                BatchResponseItemData::Get(get_response)
-            }),
-            ThreadResponse::Insert(result) => {
-                let mut insert_response = InsertResponse::new();
-                insert_response.okay = result.is_ok();
-                Some(BatchResponseItemData::Insert(insert_response))
-            }
-            ThreadResponse::Delete(result) => {
-                let mut delete_response = DeleteResponse::new();
-                delete_response.okay = result.is_some();
-                Some(BatchResponseItemData::Delete(delete_response))
-            }
-        };
-
-        batch_response_item.item = item_data;
-        batch_response_item
-    }
 }
 
-pub async fn send_batches(
-    commands: Vec<ThreadCommand>,
-    channels: Vec<Arc<Mutex<ThreadChannel>>>,
-) -> Vec<ThreadResponse> {
-    let mut batches: Vec<_> = (0..channels.len()).map(|_| Vec::new()).collect();
-    let mut responses_vec: Vec<Option<ThreadResponse>> =
-        (0..commands.len()).map(|_| None).collect();
-    let mut response_index = 0usize;
+pub async fn send_operations(
+    operations: Vec<Operation>,
+    mut senders: Vec<OperationSender>,
+) -> Vec<OperationResponse> {
+    let mut batches: Vec<_> = (0..senders.len()).map(|_| Vec::new()).collect();
+    let mut responses = Vec::with_capacity(operations.len());
 
-    for command in commands {
-        let hash_key = command.hash_key();
-        let partition = get_hash_key_target_partition(&hash_key, channels.len());
-        batches[partition].push((response_index, command));
-        response_index += 1;
+    for operation in operations {
+        let hash_key = operation.hash_key();
+        let partition = get_hash_key_target_partition(&hash_key, senders.len());
+        batches[partition].push(operation);
     }
 
-    let mut response_batches: Vec<_> = (0..batches.len()).map(|_| Vec::new()).collect();
     for (partition, batch) in batches
         .into_iter()
         .enumerate()
         .filter(|(_, batch)| !batch.is_empty())
     {
-        let mut channel = channels[partition].lock().await;
-        for (response_index, command) in batch {
-            response_batches[partition].push(response_index);
-            channel.sender.send(command).await.unwrap();
-        }
+        let (response_sender, response_receiver) = oneshot::channel();
+        let sender = senders.get_mut(partition).unwrap();
 
-        for response_index in &response_batches[partition] {
-            let response = channel.receiver.next().await.unwrap();
-            responses_vec[response_index.clone()] = Some(response);
+        tracing::info!("Sending batch to thread {}", partition);
+        sender.send((batch, response_sender)).await.unwrap();
+        for operation_response in response_receiver.await.unwrap() {
+            responses.push(operation_response);
         }
     }
 
-    responses_vec
-        .into_iter()
-        .map(|response| response.unwrap())
-        .collect()
+    responses
 }

@@ -9,7 +9,6 @@ pub use request::{
     DeleteRequest, GetRequest, InsertRequest, Request as ProtoRequest,
 };
 pub use response::{
-    batch_response_item::Item as BatchResponseItemData, response::Data as ProtoResponseData,
-    BatchResponse, BatchResponseItem, ClientError, DeleteResponse, GetResponse, InsertResponse,
-    Response as ProtoResponse, ServerError,
+    response::Data as ProtoResponseData, BatchResponse, ClientError, DeleteResponse, GetResponse,
+    InsertResponse, Response as ProtoResponse, ServerError,
 };

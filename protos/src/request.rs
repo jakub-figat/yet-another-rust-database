@@ -1082,56 +1082,7 @@ impl BatchItem {
         ::std::default::Default::default()
     }
 
-    // .GetRequest get = 1;
-
-    pub fn get(&self) -> &GetRequest {
-        match self.item {
-            ::std::option::Option::Some(batch_item::Item::Get(ref v)) => v,
-            _ => <GetRequest as ::protobuf::Message>::default_instance(),
-        }
-    }
-
-    pub fn clear_get(&mut self) {
-        self.item = ::std::option::Option::None;
-    }
-
-    pub fn has_get(&self) -> bool {
-        match self.item {
-            ::std::option::Option::Some(batch_item::Item::Get(..)) => true,
-            _ => false,
-        }
-    }
-
-    // Param is passed by value, moved
-    pub fn set_get(&mut self, v: GetRequest) {
-        self.item = ::std::option::Option::Some(batch_item::Item::Get(v))
-    }
-
-    // Mutable pointer to the field.
-    pub fn mut_get(&mut self) -> &mut GetRequest {
-        if let ::std::option::Option::Some(batch_item::Item::Get(_)) = self.item {
-        } else {
-            self.item = ::std::option::Option::Some(batch_item::Item::Get(GetRequest::new()));
-        }
-        match self.item {
-            ::std::option::Option::Some(batch_item::Item::Get(ref mut v)) => v,
-            _ => panic!(),
-        }
-    }
-
-    // Take field
-    pub fn take_get(&mut self) -> GetRequest {
-        if self.has_get() {
-            match self.item.take() {
-                ::std::option::Option::Some(batch_item::Item::Get(v)) => v,
-                _ => panic!(),
-            }
-        } else {
-            GetRequest::new()
-        }
-    }
-
-    // .InsertRequest insert = 2;
+    // .InsertRequest insert = 1;
 
     pub fn insert(&self) -> &InsertRequest {
         match self.item {
@@ -1180,7 +1131,7 @@ impl BatchItem {
         }
     }
 
-    // .DeleteRequest delete = 3;
+    // .DeleteRequest delete = 2;
 
     pub fn delete(&self) -> &DeleteRequest {
         match self.item {
@@ -1230,15 +1181,8 @@ impl BatchItem {
     }
 
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(3);
+        let mut fields = ::std::vec::Vec::with_capacity(2);
         let mut oneofs = ::std::vec::Vec::with_capacity(1);
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, GetRequest>(
-            "get",
-            BatchItem::has_get,
-            BatchItem::get,
-            BatchItem::mut_get,
-            BatchItem::set_get,
-        ));
         fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, InsertRequest>(
             "insert",
             BatchItem::has_insert,
@@ -1273,12 +1217,9 @@ impl ::protobuf::Message for BatchItem {
         while let Some(tag) = is.read_raw_tag_or_eof()? {
             match tag {
                 10 => {
-                    self.item = ::std::option::Option::Some(batch_item::Item::Get(is.read_message()?));
-                },
-                18 => {
                     self.item = ::std::option::Option::Some(batch_item::Item::Insert(is.read_message()?));
                 },
-                26 => {
+                18 => {
                     self.item = ::std::option::Option::Some(batch_item::Item::Delete(is.read_message()?));
                 },
                 tag => {
@@ -1295,10 +1236,6 @@ impl ::protobuf::Message for BatchItem {
         let mut my_size = 0;
         if let ::std::option::Option::Some(ref v) = self.item {
             match v {
-                &batch_item::Item::Get(ref v) => {
-                    let len = v.compute_size();
-                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
-                },
                 &batch_item::Item::Insert(ref v) => {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
@@ -1317,14 +1254,11 @@ impl ::protobuf::Message for BatchItem {
     fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
         if let ::std::option::Option::Some(ref v) = self.item {
             match v {
-                &batch_item::Item::Get(ref v) => {
+                &batch_item::Item::Insert(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(1, v, os)?;
                 },
-                &batch_item::Item::Insert(ref v) => {
-                    ::protobuf::rt::write_message_field_with_cached_size(2, v, os)?;
-                },
                 &batch_item::Item::Delete(ref v) => {
-                    ::protobuf::rt::write_message_field_with_cached_size(3, v, os)?;
+                    ::protobuf::rt::write_message_field_with_cached_size(2, v, os)?;
                 },
             };
         }
@@ -1345,7 +1279,6 @@ impl ::protobuf::Message for BatchItem {
     }
 
     fn clear(&mut self) {
-        self.item = ::std::option::Option::None;
         self.item = ::std::option::Option::None;
         self.item = ::std::option::Option::None;
         self.special_fields.clear();
@@ -1384,8 +1317,6 @@ pub mod batch_item {
     #[non_exhaustive]
     // @@protoc_insertion_point(oneof:BatchItem.item)
     pub enum Item {
-        // @@protoc_insertion_point(oneof_field:BatchItem.get)
-        Get(super::GetRequest),
         // @@protoc_insertion_point(oneof_field:BatchItem.insert)
         Insert(super::InsertRequest),
         // @@protoc_insertion_point(oneof_field:BatchItem.delete)
@@ -1424,11 +1355,10 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     ble\"c\n\rDeleteRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07has\
     hKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x12\
     \x14\n\x05table\x18\x03\x20\x01(\tR\x05table\"0\n\x0cBatchRequest\x12\
-    \x20\n\x05items\x18\x01\x20\x03(\x0b2\n.BatchItemR\x05items\"\x88\x01\n\
-    \tBatchItem\x12\x1f\n\x03get\x18\x01\x20\x01(\x0b2\x0b.GetRequestH\0R\
-    \x03get\x12(\n\x06insert\x18\x02\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06\
-    insert\x12(\n\x06delete\x18\x03\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06d\
-    eleteB\x06\n\x04itemb\x06proto3\
+    \x20\n\x05items\x18\x01\x20\x03(\x0b2\n.BatchItemR\x05items\"g\n\tBatchI\
+    tem\x12(\n\x06insert\x18\x01\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06inse\
+    rt\x12(\n\x06delete\x18\x02\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06delet\
+    eB\x06\n\x04itemb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file

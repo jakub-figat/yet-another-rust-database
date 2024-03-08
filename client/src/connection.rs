@@ -1,17 +1,18 @@
+use crate::batch::{get_batch_item_hash_key, Batch};
+use crate::connection_util::{create_delete_request, create_get_request};
 use crate::model::Model;
 use crate::pool::ConnectionPool;
 use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use protobuf::Message;
-use protos::util::parse_message_field_from_value;
-use protos::{
-    DeleteRequest, GetRequest, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
-};
+use protos::{BatchRequest, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData};
 use std::collections::HashMap;
 use std::net::SocketAddrV4;
-use std::sync::Weak;
+use std::sync::{Arc, Weak};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
+use tokio::task::JoinSet;
 
 pub struct Connection {
     pub inner: Option<ConnectionInner>,
@@ -49,7 +50,7 @@ impl Connection {
         &mut self,
         hash_key: String,
         sort_key: Value,
-        table_name: String,
+        table_name: &str,
     ) -> Result<Option<()>, ConnectionError> {
         self.inner
             .as_mut()
@@ -57,10 +58,14 @@ impl Connection {
             .delete(hash_key, sort_key, table_name)
             .await
     }
+
+    pub async fn send_batch(&mut self, batch: Batch) -> Result<bool, ConnectionError> {
+        self.inner.as_mut().unwrap().send_batch(batch).await
+    }
 }
 
 pub struct ConnectionInner {
-    streams: HashMap<usize, TcpStream>,
+    streams: HashMap<usize, Arc<Mutex<TcpStream>>>,
 }
 
 #[derive(Debug)]
@@ -80,9 +85,7 @@ impl ConnectionInner {
             .await
             .map_err(|e| ConnectionError::Server(e.to_string()))?;
 
-        let mut session = ConnectionInner {
-            streams: HashMap::from([(0, stream)]),
-        };
+        let mut streams = HashMap::from([(0, Arc::new(Mutex::new(stream)))]);
 
         let starting_port = address.port();
         let last_port = starting_port + num_of_threads as u16;
@@ -96,10 +99,10 @@ impl ConnectionInner {
                 .read_u32()
                 .await
                 .map_err(|e| ConnectionError::Server(e.to_string()))?;
-            session.streams.insert(partition, stream);
+            streams.insert(partition, Arc::new(Mutex::new(stream)));
         }
 
-        Ok(session)
+        Ok(ConnectionInner { streams })
     }
 
     async fn get<T: Model>(
@@ -108,16 +111,12 @@ impl ConnectionInner {
         sort_key: Value,
     ) -> Result<Option<T>, ConnectionError> {
         let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
-
-        let mut get_request = GetRequest::new();
-        get_request.hash_key = hash_key;
-        get_request.sort_key = parse_message_field_from_value(sort_key);
-        get_request.table = T::table_name();
+        let get_request = create_get_request::<T>(hash_key, sort_key);
 
         let mut request = ProtoRequest::new();
         request.data = Some(ProtoRequestData::Get(get_request));
 
-        let proto_response = self.send_request(request, partition).await?;
+        let proto_response = send_request(self.streams[&partition].clone(), request).await?;
 
         match proto_response.data {
             None => Ok(None),
@@ -143,7 +142,7 @@ impl ConnectionInner {
         let mut request = ProtoRequest::new();
         request.data = Some(ProtoRequestData::Insert(insert_request));
 
-        let proto_response = self.send_request(request, partition).await?;
+        let proto_response = send_request(self.streams[&partition].clone(), request).await?;
 
         match proto_response.data.unwrap() {
             ProtoResponseData::Insert(insert_response) => match insert_response.okay {
@@ -164,18 +163,15 @@ impl ConnectionInner {
         &mut self,
         hash_key: String,
         sort_key: Value,
-        table_name: String,
+        table_name: &str,
     ) -> Result<Option<()>, ConnectionError> {
         let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
 
-        let mut delete_request = DeleteRequest::new();
-        delete_request.hash_key = hash_key;
-        delete_request.sort_key = parse_message_field_from_value(sort_key);
-        delete_request.table = table_name;
-
         let mut request = ProtoRequest::new();
+        let delete_request = create_delete_request(hash_key, sort_key, table_name);
         request.data = Some(ProtoRequestData::Delete(delete_request));
-        let proto_response = self.send_request(request, partition).await?;
+
+        let proto_response = send_request(self.streams[&partition].clone(), request).await?;
 
         match proto_response.data {
             Some(proto_response_data) => match proto_response_data {
@@ -195,37 +191,104 @@ impl ConnectionInner {
         }
     }
 
-    async fn send_request(
-        &mut self,
-        proto_request: ProtoRequest,
-        partition: usize,
-    ) -> Result<ProtoResponse, ConnectionError> {
-        let request_bytes = proto_request.write_to_bytes().unwrap();
-        let request_size_prefix = (request_bytes.len() as u32).to_be_bytes();
+    pub async fn send_batch(&mut self, batch: Batch) -> Result<bool, ConnectionError> {
+        if batch.items.is_empty() {
+            return Ok(true);
+        }
 
-        let stream = self.streams.get_mut(&partition).unwrap();
+        let mut item_batches: Vec<_> = (0..self.streams.len()).map(|_| Vec::new()).collect();
 
-        stream
-            .write_all(&request_size_prefix)
-            .await
-            .map_err(|e| ConnectionError::Client(e.to_string()))?;
-        stream
-            .write_all(&request_bytes)
-            .await
-            .map_err(|e| ConnectionError::Client(e.to_string()))?;
+        for item in batch.items {
+            let hash_key = get_batch_item_hash_key(&item);
+            let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
+            item_batches[partition].push(item);
+        }
 
-        let response_size = stream
-            .read_u32()
-            .await
-            .map_err(|e| ConnectionError::Client(e.to_string()))?;
-        let mut buffer = vec![0u8; response_size as usize];
-        stream
-            .read_exact(&mut buffer)
-            .await
-            .map_err(|e| ConnectionError::Client(e.to_string()))?;
+        let mut join_set = JoinSet::new();
+        for (partition, item_batch) in item_batches
+            .into_iter()
+            .enumerate()
+            .filter(|(_, batch)| !batch.is_empty())
+        {
+            let mut batch_request = BatchRequest::new();
+            batch_request.items = item_batch;
 
-        ProtoResponse::parse_from_bytes(&buffer).map_err(|e| ConnectionError::Client(e.to_string()))
+            let mut proto_request = ProtoRequest::new();
+            proto_request.data = Some(ProtoRequestData::Batch(batch_request));
+
+            join_set.spawn(send_request(
+                self.streams[&partition].clone(),
+                proto_request,
+            ));
+        }
+
+        while let Some(result) = join_set.join_next().await {
+            let response = result.unwrap()?;
+            match response.data.unwrap() {
+                ProtoResponseData::Batch(batch_response) => {
+                    if !batch_response.okay {
+                        return Ok(false);
+                    }
+                }
+                _ => panic!("Invalid proto response type"),
+            }
+        }
+
+        Ok(true)
+        // let proto_response = self.send_request(request, partition).await?;
+
+        // match proto_response.data.unwrap() {
+        //     ProtoResponseData::Batch(batch_response) => Ok(BatchResult {
+        //         items: batch_response
+        //             .items
+        //             .into_iter()
+        //             .map(|item| match item.item.unwrap() {
+        //                 BatchResponseItemData::Insert(insert_response) => insert_response.okay,
+        //                 BatchResponseItemData::Delete(delete_response) => delete_response.okay,
+        //                 _ => panic!("Invalid batch response item data type"),
+        //             })
+        //             .collect(),
+        //     }),
+        //     ProtoResponseData::ClientError(client_error) => {
+        //         Err(ConnectionError::Client(client_error.detail))
+        //     }
+        //     ProtoResponseData::ServerError(server_error) => {
+        //         Err(ConnectionError::Server(server_error.detail))
+        //     }
+        //     _ => panic!("Invalid proto response type"),
+        // }
     }
+}
+
+async fn send_request(
+    stream: Arc<Mutex<TcpStream>>,
+    proto_request: ProtoRequest,
+) -> Result<ProtoResponse, ConnectionError> {
+    let request_bytes = proto_request.write_to_bytes().unwrap();
+    let request_size_prefix = (request_bytes.len() as u32).to_be_bytes();
+
+    let mut stream = stream.try_lock().unwrap();
+
+    stream
+        .write_all(&request_size_prefix)
+        .await
+        .map_err(|e| ConnectionError::Client(e.to_string()))?;
+    stream
+        .write_all(&request_bytes)
+        .await
+        .map_err(|e| ConnectionError::Client(e.to_string()))?;
+
+    let response_size = stream
+        .read_u32()
+        .await
+        .map_err(|e| ConnectionError::Client(e.to_string()))?;
+    let mut buffer = vec![0u8; response_size as usize];
+    stream
+        .read_exact(&mut buffer)
+        .await
+        .map_err(|e| ConnectionError::Client(e.to_string()))?;
+
+    ProtoResponse::parse_from_bytes(&buffer).map_err(|e| ConnectionError::Client(e.to_string()))
 }
 
 impl Drop for Connection {

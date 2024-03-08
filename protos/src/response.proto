@@ -31,18 +31,8 @@ message DeleteResponse {
 }
 
 message BatchResponse {
-    repeated BatchResponseItem items = 1;
+    bool okay = 1;
 }
-
-
-message BatchResponseItem {
-    oneof item {
-        GetResponse get = 1;
-        InsertResponse insert = 2;
-        DeleteResponse delete = 3;
-    }
-}
-
 
 message ClientError {
     string detail = 1;

@@ -1,4 +1,4 @@
-use crate::proto_parsing::parse_request_from_bytes;
+use crate::proto_parsing::parse_command_from_bytes;
 use crate::thread_channels::Operation::{Delete, Get, Insert};
 use crate::thread_channels::{
     send_operations, Command, Operation, OperationResponse, OperationSender, Response,
@@ -94,7 +94,7 @@ async fn listen_for_tcp_request(
     let (result, mut buffer) = stream.read_exact(buffer).await;
     result.map_err(|e| HandlerError::Server(e.to_string()))?;
 
-    let command = parse_request_from_bytes(&mut buffer).map_err(|e| {
+    let command = parse_command_from_bytes(&mut buffer).map_err(|e| {
         tracing::warn!(
             "Invalid command on thread {}: {}",
             current_partition,

@@ -38,8 +38,7 @@ message BatchRequest {
 
 message BatchItem {
     oneof item {
-        GetRequest get = 1;
-        InsertRequest insert = 2;
-        DeleteRequest delete = 3;
+        InsertRequest insert = 1;
+        DeleteRequest delete = 2;
     }
 }

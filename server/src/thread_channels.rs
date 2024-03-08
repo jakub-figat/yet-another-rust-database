@@ -4,8 +4,7 @@ use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
 use protos::util::{parse_message_field_from_value, parse_proto_from_value};
 use protos::{
-    BatchResponse, BatchResponseItem, BatchResponseItemData, DeleteResponse, GetResponse,
-    InsertResponse, ProtoResponse, ProtoResponseData,
+    BatchResponse, DeleteResponse, GetResponse, InsertResponse, ProtoResponse, ProtoResponseData,
 };
 use storage::Row;
 
@@ -79,40 +78,14 @@ impl Response {
             },
             Response::Batch(operation_responses) => {
                 let mut batch_response = BatchResponse::new();
-
-                batch_response.items = operation_responses
-                    .into_iter()
-                    .map(|operation_response| {
-                        let mut batch_response_item = BatchResponseItem::new();
-
-                        batch_response_item.item = match operation_response {
-                            OperationResponse::Get(result) => result.map(|row| {
-                                let mut get_response = GetResponse::new();
-                                get_response.hash_key = row.hash_key;
-                                get_response.sort_key =
-                                    parse_message_field_from_value(row.sort_key);
-                                get_response.values = row
-                                    .values
-                                    .into_iter()
-                                    .map(|value| parse_proto_from_value(value))
-                                    .collect();
-                                BatchResponseItemData::Get(get_response)
-                            }),
-                            OperationResponse::Insert(result) => {
-                                let mut insert_response = InsertResponse::new();
-                                insert_response.okay = result.is_ok();
-                                Some(BatchResponseItemData::Insert(insert_response))
-                            }
-                            OperationResponse::Delete(result) => {
-                                let mut delete_response = DeleteResponse::new();
-                                delete_response.okay = result.is_some();
-                                Some(BatchResponseItemData::Delete(delete_response))
-                            }
-                        };
-
-                        batch_response_item
-                    })
-                    .collect();
+                batch_response.okay =
+                    operation_responses
+                        .iter()
+                        .all(|operation_response| match operation_response {
+                            OperationResponse::Insert(insert) => insert.is_ok(),
+                            OperationResponse::Delete(delete) => delete.is_some(),
+                            _ => panic!("Invalid operation response type"),
+                        });
                 Some(ProtoResponseData::Batch(batch_response))
             }
         };

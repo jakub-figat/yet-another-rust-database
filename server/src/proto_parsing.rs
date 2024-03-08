@@ -3,7 +3,7 @@ use protobuf::Message;
 use protos::util::parse_value_from_proto;
 use protos::{BatchItemData, ProtoRequest, ProtoRequestData};
 
-pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String> {
+pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String> {
     let request = ProtoRequest::parse_from_bytes(&buffer).map_err(|err| err.to_string());
     buffer.clear();
 
@@ -46,10 +46,6 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String>
             let mut operations = Vec::with_capacity(batch.items.len());
             for item in batch.items {
                 let operation = match item.item.unwrap() {
-                    BatchItemData::Get(get) => {
-                        let sort_key = parse_value_from_proto(get.sort_key.unwrap());
-                        Ok::<Operation, String>(Operation::Get(get.hash_key, sort_key, get.table))
-                    }
                     BatchItemData::Insert(insert) => {
                         let sort_key = parse_value_from_proto(insert.sort_key.unwrap());
                         let values: Vec<_> = insert
@@ -57,7 +53,7 @@ pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String>
                             .into_iter()
                             .map(|value| parse_value_from_proto(value))
                             .collect();
-                        Ok(Operation::Insert(
+                        Ok::<Operation, String>(Operation::Insert(
                             insert.hash_key,
                             sort_key,
                             values,

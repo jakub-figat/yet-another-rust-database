@@ -1006,8 +1006,8 @@ impl ::protobuf::reflect::ProtobufValue for DeleteResponse {
 #[derive(PartialEq,Clone,Default,Debug)]
 pub struct BatchResponse {
     // message fields
-    // @@protoc_insertion_point(field:BatchResponse.items)
-    pub items: ::std::vec::Vec<BatchResponseItem>,
+    // @@protoc_insertion_point(field:BatchResponse.okay)
+    pub okay: bool,
     // special fields
     // @@protoc_insertion_point(special_field:BatchResponse.special_fields)
     pub special_fields: ::protobuf::SpecialFields,
@@ -1027,10 +1027,10 @@ impl BatchResponse {
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
         let mut fields = ::std::vec::Vec::with_capacity(1);
         let mut oneofs = ::std::vec::Vec::with_capacity(0);
-        fields.push(::protobuf::reflect::rt::v2::make_vec_simpler_accessor::<_, _>(
-            "items",
-            |m: &BatchResponse| { &m.items },
-            |m: &mut BatchResponse| { &mut m.items },
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "okay",
+            |m: &BatchResponse| { &m.okay },
+            |m: &mut BatchResponse| { &mut m.okay },
         ));
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<BatchResponse>(
             "BatchResponse",
@@ -1050,8 +1050,8 @@ impl ::protobuf::Message for BatchResponse {
     fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
         while let Some(tag) = is.read_raw_tag_or_eof()? {
             match tag {
-                10 => {
-                    self.items.push(is.read_message()?);
+                8 => {
+                    self.okay = is.read_bool()?;
                 },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
@@ -1065,19 +1065,18 @@ impl ::protobuf::Message for BatchResponse {
     #[allow(unused_variables)]
     fn compute_size(&self) -> u64 {
         let mut my_size = 0;
-        for value in &self.items {
-            let len = value.compute_size();
-            my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
-        };
+        if self.okay != false {
+            my_size += 1 + 1;
+        }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
         self.special_fields.cached_size().set(my_size as u32);
         my_size
     }
 
     fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
-        for v in &self.items {
-            ::protobuf::rt::write_message_field_with_cached_size(1, v, os)?;
-        };
+        if self.okay != false {
+            os.write_bool(1, self.okay)?;
+        }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -1095,13 +1094,13 @@ impl ::protobuf::Message for BatchResponse {
     }
 
     fn clear(&mut self) {
-        self.items.clear();
+        self.okay = false;
         self.special_fields.clear();
     }
 
     fn default_instance() -> &'static BatchResponse {
         static instance: BatchResponse = BatchResponse {
-            items: ::std::vec::Vec::new(),
+            okay: false,
             special_fields: ::protobuf::SpecialFields::new(),
         };
         &instance
@@ -1123,354 +1122,6 @@ impl ::std::fmt::Display for BatchResponse {
 
 impl ::protobuf::reflect::ProtobufValue for BatchResponse {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
-}
-
-// @@protoc_insertion_point(message:BatchResponseItem)
-#[derive(PartialEq,Clone,Default,Debug)]
-pub struct BatchResponseItem {
-    // message oneof groups
-    pub item: ::std::option::Option<batch_response_item::Item>,
-    // special fields
-    // @@protoc_insertion_point(special_field:BatchResponseItem.special_fields)
-    pub special_fields: ::protobuf::SpecialFields,
-}
-
-impl<'a> ::std::default::Default for &'a BatchResponseItem {
-    fn default() -> &'a BatchResponseItem {
-        <BatchResponseItem as ::protobuf::Message>::default_instance()
-    }
-}
-
-impl BatchResponseItem {
-    pub fn new() -> BatchResponseItem {
-        ::std::default::Default::default()
-    }
-
-    // .GetResponse get = 1;
-
-    pub fn get(&self) -> &GetResponse {
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Get(ref v)) => v,
-            _ => <GetResponse as ::protobuf::Message>::default_instance(),
-        }
-    }
-
-    pub fn clear_get(&mut self) {
-        self.item = ::std::option::Option::None;
-    }
-
-    pub fn has_get(&self) -> bool {
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Get(..)) => true,
-            _ => false,
-        }
-    }
-
-    // Param is passed by value, moved
-    pub fn set_get(&mut self, v: GetResponse) {
-        self.item = ::std::option::Option::Some(batch_response_item::Item::Get(v))
-    }
-
-    // Mutable pointer to the field.
-    pub fn mut_get(&mut self) -> &mut GetResponse {
-        if let ::std::option::Option::Some(batch_response_item::Item::Get(_)) = self.item {
-        } else {
-            self.item = ::std::option::Option::Some(batch_response_item::Item::Get(GetResponse::new()));
-        }
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Get(ref mut v)) => v,
-            _ => panic!(),
-        }
-    }
-
-    // Take field
-    pub fn take_get(&mut self) -> GetResponse {
-        if self.has_get() {
-            match self.item.take() {
-                ::std::option::Option::Some(batch_response_item::Item::Get(v)) => v,
-                _ => panic!(),
-            }
-        } else {
-            GetResponse::new()
-        }
-    }
-
-    // .InsertResponse insert = 2;
-
-    pub fn insert(&self) -> &InsertResponse {
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Insert(ref v)) => v,
-            _ => <InsertResponse as ::protobuf::Message>::default_instance(),
-        }
-    }
-
-    pub fn clear_insert(&mut self) {
-        self.item = ::std::option::Option::None;
-    }
-
-    pub fn has_insert(&self) -> bool {
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Insert(..)) => true,
-            _ => false,
-        }
-    }
-
-    // Param is passed by value, moved
-    pub fn set_insert(&mut self, v: InsertResponse) {
-        self.item = ::std::option::Option::Some(batch_response_item::Item::Insert(v))
-    }
-
-    // Mutable pointer to the field.
-    pub fn mut_insert(&mut self) -> &mut InsertResponse {
-        if let ::std::option::Option::Some(batch_response_item::Item::Insert(_)) = self.item {
-        } else {
-            self.item = ::std::option::Option::Some(batch_response_item::Item::Insert(InsertResponse::new()));
-        }
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Insert(ref mut v)) => v,
-            _ => panic!(),
-        }
-    }
-
-    // Take field
-    pub fn take_insert(&mut self) -> InsertResponse {
-        if self.has_insert() {
-            match self.item.take() {
-                ::std::option::Option::Some(batch_response_item::Item::Insert(v)) => v,
-                _ => panic!(),
-            }
-        } else {
-            InsertResponse::new()
-        }
-    }
-
-    // .DeleteResponse delete = 3;
-
-    pub fn delete(&self) -> &DeleteResponse {
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Delete(ref v)) => v,
-            _ => <DeleteResponse as ::protobuf::Message>::default_instance(),
-        }
-    }
-
-    pub fn clear_delete(&mut self) {
-        self.item = ::std::option::Option::None;
-    }
-
-    pub fn has_delete(&self) -> bool {
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Delete(..)) => true,
-            _ => false,
-        }
-    }
-
-    // Param is passed by value, moved
-    pub fn set_delete(&mut self, v: DeleteResponse) {
-        self.item = ::std::option::Option::Some(batch_response_item::Item::Delete(v))
-    }
-
-    // Mutable pointer to the field.
-    pub fn mut_delete(&mut self) -> &mut DeleteResponse {
-        if let ::std::option::Option::Some(batch_response_item::Item::Delete(_)) = self.item {
-        } else {
-            self.item = ::std::option::Option::Some(batch_response_item::Item::Delete(DeleteResponse::new()));
-        }
-        match self.item {
-            ::std::option::Option::Some(batch_response_item::Item::Delete(ref mut v)) => v,
-            _ => panic!(),
-        }
-    }
-
-    // Take field
-    pub fn take_delete(&mut self) -> DeleteResponse {
-        if self.has_delete() {
-            match self.item.take() {
-                ::std::option::Option::Some(batch_response_item::Item::Delete(v)) => v,
-                _ => panic!(),
-            }
-        } else {
-            DeleteResponse::new()
-        }
-    }
-
-    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(3);
-        let mut oneofs = ::std::vec::Vec::with_capacity(1);
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, GetResponse>(
-            "get",
-            BatchResponseItem::has_get,
-            BatchResponseItem::get,
-            BatchResponseItem::mut_get,
-            BatchResponseItem::set_get,
-        ));
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, InsertResponse>(
-            "insert",
-            BatchResponseItem::has_insert,
-            BatchResponseItem::insert,
-            BatchResponseItem::mut_insert,
-            BatchResponseItem::set_insert,
-        ));
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, DeleteResponse>(
-            "delete",
-            BatchResponseItem::has_delete,
-            BatchResponseItem::delete,
-            BatchResponseItem::mut_delete,
-            BatchResponseItem::set_delete,
-        ));
-        oneofs.push(batch_response_item::Item::generated_oneof_descriptor_data());
-        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<BatchResponseItem>(
-            "BatchResponseItem",
-            fields,
-            oneofs,
-        )
-    }
-}
-
-impl ::protobuf::Message for BatchResponseItem {
-    const NAME: &'static str = "BatchResponseItem";
-
-    fn is_initialized(&self) -> bool {
-        true
-    }
-
-    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
-        while let Some(tag) = is.read_raw_tag_or_eof()? {
-            match tag {
-                10 => {
-                    self.item = ::std::option::Option::Some(batch_response_item::Item::Get(is.read_message()?));
-                },
-                18 => {
-                    self.item = ::std::option::Option::Some(batch_response_item::Item::Insert(is.read_message()?));
-                },
-                26 => {
-                    self.item = ::std::option::Option::Some(batch_response_item::Item::Delete(is.read_message()?));
-                },
-                tag => {
-                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
-                },
-            };
-        }
-        ::std::result::Result::Ok(())
-    }
-
-    // Compute sizes of nested messages
-    #[allow(unused_variables)]
-    fn compute_size(&self) -> u64 {
-        let mut my_size = 0;
-        if let ::std::option::Option::Some(ref v) = self.item {
-            match v {
-                &batch_response_item::Item::Get(ref v) => {
-                    let len = v.compute_size();
-                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
-                },
-                &batch_response_item::Item::Insert(ref v) => {
-                    let len = v.compute_size();
-                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
-                },
-                &batch_response_item::Item::Delete(ref v) => {
-                    let len = v.compute_size();
-                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
-                },
-            };
-        }
-        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
-        self.special_fields.cached_size().set(my_size as u32);
-        my_size
-    }
-
-    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
-        if let ::std::option::Option::Some(ref v) = self.item {
-            match v {
-                &batch_response_item::Item::Get(ref v) => {
-                    ::protobuf::rt::write_message_field_with_cached_size(1, v, os)?;
-                },
-                &batch_response_item::Item::Insert(ref v) => {
-                    ::protobuf::rt::write_message_field_with_cached_size(2, v, os)?;
-                },
-                &batch_response_item::Item::Delete(ref v) => {
-                    ::protobuf::rt::write_message_field_with_cached_size(3, v, os)?;
-                },
-            };
-        }
-        os.write_unknown_fields(self.special_fields.unknown_fields())?;
-        ::std::result::Result::Ok(())
-    }
-
-    fn special_fields(&self) -> &::protobuf::SpecialFields {
-        &self.special_fields
-    }
-
-    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
-        &mut self.special_fields
-    }
-
-    fn new() -> BatchResponseItem {
-        BatchResponseItem::new()
-    }
-
-    fn clear(&mut self) {
-        self.item = ::std::option::Option::None;
-        self.item = ::std::option::Option::None;
-        self.item = ::std::option::Option::None;
-        self.special_fields.clear();
-    }
-
-    fn default_instance() -> &'static BatchResponseItem {
-        static instance: BatchResponseItem = BatchResponseItem {
-            item: ::std::option::Option::None,
-            special_fields: ::protobuf::SpecialFields::new(),
-        };
-        &instance
-    }
-}
-
-impl ::protobuf::MessageFull for BatchResponseItem {
-    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
-        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
-        descriptor.get(|| file_descriptor().message_by_package_relative_name("BatchResponseItem").unwrap()).clone()
-    }
-}
-
-impl ::std::fmt::Display for BatchResponseItem {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        ::protobuf::text_format::fmt(self, f)
-    }
-}
-
-impl ::protobuf::reflect::ProtobufValue for BatchResponseItem {
-    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
-}
-
-/// Nested message and enums of message `BatchResponseItem`
-pub mod batch_response_item {
-
-    #[derive(Clone,PartialEq,Debug)]
-    #[non_exhaustive]
-    // @@protoc_insertion_point(oneof:BatchResponseItem.item)
-    pub enum Item {
-        // @@protoc_insertion_point(oneof_field:BatchResponseItem.get)
-        Get(super::GetResponse),
-        // @@protoc_insertion_point(oneof_field:BatchResponseItem.insert)
-        Insert(super::InsertResponse),
-        // @@protoc_insertion_point(oneof_field:BatchResponseItem.delete)
-        Delete(super::DeleteResponse),
-    }
-
-    impl ::protobuf::Oneof for Item {
-    }
-
-    impl ::protobuf::OneofFull for Item {
-        fn descriptor() -> ::protobuf::reflect::OneofDescriptor {
-            static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::OneofDescriptor> = ::protobuf::rt::Lazy::new();
-            descriptor.get(|| <super::BatchResponseItem as ::protobuf::MessageFull>::descriptor().oneof_by_name("item").unwrap()).clone()
-        }
-    }
-
-    impl Item {
-        pub(in super) fn generated_oneof_descriptor_data() -> ::protobuf::reflect::GeneratedOneofDescriptorData {
-            ::protobuf::reflect::GeneratedOneofDescriptorData::new::<Item>("item")
-        }
-    }
 }
 
 // @@protoc_insertion_point(message:ClientError)
@@ -1730,14 +1381,10 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     .ValueR\x07sortKey\x12\x1e\n\x06values\x18\x03\x20\x03(\x0b2\x06.ValueR\
     \x06values\x12\x14\n\x05table\x18\x04\x20\x01(\tR\x05table\"$\n\x0eInser\
     tResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"$\n\x0eDelete\
-    Response\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"9\n\rBatchResp\
-    onse\x12(\n\x05items\x18\x01\x20\x03(\x0b2\x12.BatchResponseItemR\x05ite\
-    ms\"\x93\x01\n\x11BatchResponseItem\x12\x20\n\x03get\x18\x01\x20\x01(\
-    \x0b2\x0c.GetResponseH\0R\x03get\x12)\n\x06insert\x18\x02\x20\x01(\x0b2\
-    \x0f.InsertResponseH\0R\x06insert\x12)\n\x06delete\x18\x03\x20\x01(\x0b2\
-    \x0f.DeleteResponseH\0R\x06deleteB\x06\n\x04item\"%\n\x0bClientError\x12\
-    \x16\n\x06detail\x18\x01\x20\x01(\tR\x06detail\"%\n\x0bServerError\x12\
-    \x16\n\x06detail\x18\x01\x20\x01(\tR\x06detailb\x06proto3\
+    Response\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"#\n\rBatchResp\
+    onse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"%\n\x0bClientError\
+    \x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detail\"%\n\x0bServerError\
+    \x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detailb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -1756,13 +1403,12 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(1);
             deps.push(super::common::file_descriptor().clone());
-            let mut messages = ::std::vec::Vec::with_capacity(8);
+            let mut messages = ::std::vec::Vec::with_capacity(7);
             messages.push(Response::generated_message_descriptor_data());
             messages.push(GetResponse::generated_message_descriptor_data());
             messages.push(InsertResponse::generated_message_descriptor_data());
             messages.push(DeleteResponse::generated_message_descriptor_data());
             messages.push(BatchResponse::generated_message_descriptor_data());
-            messages.push(BatchResponseItem::generated_message_descriptor_data());
             messages.push(ClientError::generated_message_descriptor_data());
             messages.push(ServerError::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(0);

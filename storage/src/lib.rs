@@ -1,7 +1,7 @@
 mod memtable;
 mod row;
 mod sstable;
-mod table_schema;
+pub mod table;
 
-pub use memtable::{SkipList, MEGABYTE};
+pub use memtable::{Memtable, MEGABYTE};
 pub use row::Row;

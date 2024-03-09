@@ -6,7 +6,7 @@ use protobuf::MessageField;
 pub fn parse_value_from_proto(value: ProtoValue) -> Value {
     match value.data {
         Some(data) => match data {
-            ProtoValueData::Varchar(data) => Varchar(data, 1), // TODO
+            ProtoValueData::Varchar(data) => Varchar(data),
             ProtoValueData::Int32(data) => Int32(data),
             ProtoValueData::Int64(data) => Int64(data),
             ProtoValueData::Unsigned32(data) => Unsigned32(data),
@@ -14,8 +14,8 @@ pub fn parse_value_from_proto(value: ProtoValue) -> Value {
             ProtoValueData::Float32(data) => Float32(data),
             ProtoValueData::Float64(data) => Float64(data),
             ProtoValueData::Boolean(data) => Boolean(data),
-            ProtoValueData::Decimal(data) => Decimal(data, 1, 1), // TODO
-            ProtoValueData::Datetime(data) => Datetime(data),     // TODO
+            ProtoValueData::Decimal(data) => Decimal(data),
+            ProtoValueData::Datetime(data) => Datetime(data),
         },
         None => Null,
     }
@@ -23,7 +23,7 @@ pub fn parse_value_from_proto(value: ProtoValue) -> Value {
 
 pub fn parse_proto_from_value(value: Value) -> ProtoValue {
     let proto_enum_value = match value {
-        Varchar(data, _) => Some(ProtoValueData::Varchar(data)), // TODO
+        Varchar(data) => Some(ProtoValueData::Varchar(data)),
         Int32(data) => Some(ProtoValueData::Int32(data)),
         Int64(data) => Some(ProtoValueData::Int64(data)),
         Unsigned32(data) => Some(ProtoValueData::Unsigned32(data)),
@@ -31,8 +31,8 @@ pub fn parse_proto_from_value(value: Value) -> ProtoValue {
         Float32(data) => Some(ProtoValueData::Float32(data)),
         Float64(data) => Some(ProtoValueData::Float64(data)),
         Boolean(data) => Some(ProtoValueData::Boolean(data)),
-        Decimal(data, _, _) => Some(ProtoValueData::Decimal(data)), // TODO
-        Datetime(data) => Some(ProtoValueData::Datetime(data)),     // TODO
+        Decimal(data) => Some(ProtoValueData::Decimal(data)),
+        Datetime(data) => Some(ProtoValueData::Datetime(data)),
         Null => None,
     };
 

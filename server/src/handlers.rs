@@ -15,7 +15,8 @@ use protos::{ProtoResponse, ProtoResponseData, ServerError};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
-use storage::{Row, SkipList};
+use storage::table::Table;
+use storage::Row;
 
 pub enum HandlerError {
     Client(String),
@@ -28,7 +29,7 @@ pub async fn handle_tcp_stream(
     partition: usize,
     num_of_threads: usize,
     senders: Vec<OperationSender>,
-    memtable: Arc<Mutex<SkipList<Row>>>,
+    tables: Arc<HashMap<String, Mutex<Table>>>,
 ) {
     tracing::info!("Accepting connection on thread {}", partition);
 
@@ -41,7 +42,7 @@ pub async fn handle_tcp_stream(
 
     loop {
         let response_bytes =
-            match listen_for_tcp_request(&mut stream, partition, senders.clone(), memtable.clone())
+            match listen_for_tcp_request(&mut stream, partition, senders.clone(), tables.clone())
                 .await
             {
                 Ok(proto_response) => proto_response.write_to_bytes().unwrap(),
@@ -76,7 +77,7 @@ async fn listen_for_tcp_request(
     stream: &mut TcpStream,
     current_partition: usize,
     mut senders: Vec<OperationSender>,
-    memtable: Arc<Mutex<SkipList<Row>>>,
+    tables: Arc<HashMap<String, Mutex<Table>>>,
 ) -> Result<ProtoResponse, HandlerError> {
     let request_size = stream
         .read_u32()
@@ -105,13 +106,21 @@ async fn listen_for_tcp_request(
     })?;
 
     let proto_response = match command {
-        Command::Single(operation) => {
+        Command::Single(operation, table_name) => {
             let target_partition =
                 get_hash_key_target_partition(&operation.hash_key(), senders.len());
             let operation_response = match target_partition == current_partition {
                 true => {
-                    let mut memtable = memtable.lock().await;
-                    handle_operation(operation, &mut memtable)
+                    let mut table = tables
+                        .get(&table_name)
+                        .ok_or(HandlerError::Client(format!(
+                            "Table named '{}' not found",
+                            table_name
+                        )))?
+                        .lock()
+                        .await;
+
+                    handle_operation(operation, &mut table)
                 }
                 false => {
                     tracing::info!(
@@ -122,7 +131,7 @@ async fn listen_for_tcp_request(
                     let (response_sender, response_receiver) = oneshot::channel();
                     let sender = senders.get_mut(target_partition).unwrap();
                     sender
-                        .send((Vec::from([operation]), response_sender))
+                        .send((Vec::from([operation]), table_name, response_sender))
                         .await
                         .unwrap();
                     response_receiver.await.unwrap().pop().unwrap()
@@ -130,14 +139,30 @@ async fn listen_for_tcp_request(
             };
             Response::Single(operation_response).to_proto_response()
         }
-        Command::GetMany(operations) => {
+        Command::GetMany(operations, table_name) => {
+            if !tables.contains_key(&table_name) {
+                return Err(HandlerError::Client(format!(
+                    "Table named '{}' not found",
+                    table_name
+                )));
+            }
+
             tracing::info!("Sending get requests from thread {}", current_partition);
-            let operation_responses = send_operations(operations, senders.clone()).await;
+            let operation_responses =
+                send_operations(operations, senders.clone(), &table_name).await;
             Response::GetMany(operation_responses).to_proto_response()
         }
-        Command::Batch(operations) => {
+        Command::Batch(operations, table_name) => {
+            if !tables.contains_key(&table_name) {
+                return Err(HandlerError::Client(format!(
+                    "Table named '{}' not found",
+                    table_name
+                )));
+            }
+
             tracing::info!("Sending batches from thread {}", current_partition);
-            let operation_responses = send_operations(operations, senders.clone()).await;
+            let operation_responses =
+                send_operations(operations, senders.clone(), &table_name).await;
             Response::Batch(operation_responses).to_proto_response()
         }
     };
@@ -146,20 +171,21 @@ async fn listen_for_tcp_request(
     Ok(proto_response)
 }
 
-pub fn handle_operation(operation: Operation, memtable: &mut SkipList<Row>) -> OperationResponse {
+pub fn handle_operation(operation: Operation, table: &mut Table) -> OperationResponse {
     match operation {
-        Get(hash_key, sort_key, table) => {
-            let val = memtable
-                .get(&Row::new(hash_key, sort_key, HashMap::new(), table))
-                .cloned();
+        Get(hash_key, sort_key) => {
+            let primary_key = format!("{}:{}", hash_key, sort_key);
+            let val = table.memtable.get(&primary_key).cloned();
             OperationResponse::Get(val)
         }
-        Insert(hash_key, sort_key, values, table) => {
-            let val = memtable.insert(Row::new(hash_key, sort_key, values, table));
+        Insert(hash_key, sort_key, values) => {
+            let val = table.memtable.insert(Row::new(hash_key, sort_key, values));
             OperationResponse::Insert(val)
         }
-        Delete(hash_key, sort_key, table) => {
-            let val = memtable.delete(&Row::new(hash_key, sort_key, HashMap::new(), table));
+        Delete(hash_key, sort_key) => {
+            let primary_key = format!("{}:{}", hash_key, sort_key);
+
+            let val = table.memtable.delete(&primary_key);
             OperationResponse::Delete(val)
         }
     }

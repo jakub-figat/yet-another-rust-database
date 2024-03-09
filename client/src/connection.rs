@@ -68,7 +68,7 @@ impl Connection {
         self.inner.as_mut().unwrap().get_many(get_many).await
     }
 
-    pub async fn batch(&mut self, batch: Batch) -> Result<bool, ConnectionError> {
+    pub async fn batch<T: Model>(&mut self, batch: Batch<T>) -> Result<bool, ConnectionError> {
         self.inner.as_mut().unwrap().batch(batch).await
     }
 }
@@ -120,9 +120,10 @@ impl ConnectionInner {
         sort_key: Value,
     ) -> Result<Option<T>, ConnectionError> {
         let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
-        let get_request = create_get_request::<T>(hash_key, sort_key);
+        let get_request = create_get_request(hash_key, sort_key);
 
         let mut request = ProtoRequest::new();
+        request.table = T::table_name();
         request.data = Some(ProtoRequestData::Get(get_request));
 
         let proto_response = send_request(self.streams[&partition].clone(), request).await?;
@@ -177,7 +178,9 @@ impl ConnectionInner {
         let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
 
         let mut request = ProtoRequest::new();
-        let delete_request = create_delete_request(hash_key, sort_key, table_name);
+        request.table = table_name.to_string();
+
+        let delete_request = create_delete_request(hash_key, sort_key);
         request.data = Some(ProtoRequestData::Delete(delete_request));
 
         let proto_response = send_request(self.streams[&partition].clone(), request).await?;
@@ -226,6 +229,8 @@ impl ConnectionInner {
             get_many_request.items = item_batch;
 
             let mut proto_request = ProtoRequest::new();
+            proto_request.table = T::table_name();
+
             proto_request.data = Some(ProtoRequestData::GetMany(get_many_request));
 
             join_set.spawn(send_request(
@@ -249,7 +254,7 @@ impl ConnectionInner {
         Ok(responses)
     }
 
-    async fn batch(&mut self, batch: Batch) -> Result<bool, ConnectionError> {
+    async fn batch<T: Model>(&mut self, batch: Batch<T>) -> Result<bool, ConnectionError> {
         if batch.items.is_empty() {
             return Ok(true);
         }
@@ -272,6 +277,8 @@ impl ConnectionInner {
             batch_request.items = item_batch;
 
             let mut proto_request = ProtoRequest::new();
+            proto_request.table = T::table_name();
+
             proto_request.data = Some(ProtoRequestData::Batch(batch_request));
 
             join_set.spawn(send_request(

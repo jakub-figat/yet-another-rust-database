@@ -138,7 +138,6 @@ fn proc_to_insert_request(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
         #field_operations
 
         insert_request.values = values;
-        insert_request.table = Self::table_name();
         insert_request
     }
 }
@@ -154,7 +153,6 @@ fn proc_to_delete_request(sort_key: &Field) -> TokenStream {
         let mut delete_request = DeleteRequest::new();
         delete_request.hash_key = self.hash_key.clone();
         #sort_key_operation
-        delete_request.table = Self::table_name();
 
         delete_request
     }
@@ -188,7 +186,7 @@ fn parse_from_value_quote(field: &Field) -> TokenStream {
     match field_type.as_str() {
         "String" => {
             quote! {
-                Varchar(val, _) => val,
+                Varchar(val) => val,
             }
         }
         "i32" => {
@@ -246,7 +244,7 @@ fn parse_to_value_quote(field: &Field) -> TokenStream {
     match field_type.as_str() {
         "String" => {
             quote! {
-                let value = Varchar(self.#field_name.clone(), 1);
+                let value = Varchar(self.#field_name.clone());
             }
         }
         "i32" => {
@@ -338,7 +336,7 @@ fn parse_from_value_quote_for_option(field_type: &str) -> TokenStream {
     match field_type {
         "String" => {
             quote! {
-                Varchar(val, _) => Some(val),
+                Varchar(val) => Some(val),
             }
         }
         "i32" => {
@@ -385,7 +383,7 @@ fn parse_to_value_quote_for_option_inner(field_type: &str) -> TokenStream {
     match field_type {
         "String" => {
             quote! {
-                Varchar(inner.clone(), 1),
+                Varchar(inner.clone()),
             }
         }
         "i32" => {

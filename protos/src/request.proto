@@ -10,26 +10,24 @@ message Request {
         GetManyRequest get_many = 4;
         BatchRequest batch = 5;
     }
+    string table = 6;
 }
 
 
 message GetRequest {
     string hash_key = 1;
     Value sort_key = 2;
-    string table = 3;
 }
 
 message InsertRequest {
     string hash_key = 1;
     Value sort_key = 2;
     map<string, Value> values = 3;
-    string table = 4;
 }
 
 message DeleteRequest {
     string hash_key = 1;
     Value sort_key = 2;
-    string table = 3;
 }
 
 message GetManyRequest {

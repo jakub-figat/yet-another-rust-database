@@ -10,31 +10,32 @@ use protos::{
 use std::collections::HashMap;
 use storage::Row;
 
-pub type OperationSender = mpsc::UnboundedSender<(Vec<Operation>, OperationResponseSender)>;
-pub type OperationReceiver = mpsc::UnboundedReceiver<(Vec<Operation>, OperationResponseSender)>;
+pub type OperationSender = mpsc::UnboundedSender<(Vec<Operation>, String, OperationResponseSender)>;
+pub type OperationReceiver =
+    mpsc::UnboundedReceiver<(Vec<Operation>, String, OperationResponseSender)>;
 
 pub type OperationResponseSender = oneshot::Sender<Vec<OperationResponse>>;
 
 #[derive(Debug)]
 pub enum Command {
-    Single(Operation),
-    GetMany(Vec<Operation>),
-    Batch(Vec<Operation>),
+    Single(Operation, String),
+    GetMany(Vec<Operation>, String),
+    Batch(Vec<Operation>, String),
 }
 
 #[derive(Debug)]
 pub enum Operation {
-    Get(String, Value, String),
-    Insert(String, Value, HashMap<String, Value>, String),
-    Delete(String, Value, String),
+    Get(String, Value),
+    Insert(String, Value, HashMap<String, Value>),
+    Delete(String, Value),
 }
 
 impl Operation {
     pub fn hash_key(&self) -> String {
         match self {
-            Operation::Get(hash_key, _, _) => hash_key.clone(),
-            Operation::Insert(hash_key, _, _, _) => hash_key.clone(),
-            Operation::Delete(hash_key, _, _) => hash_key.clone(),
+            Operation::Get(hash_key, _) => hash_key.clone(),
+            Operation::Insert(hash_key, _, _) => hash_key.clone(),
+            Operation::Delete(hash_key, _) => hash_key.clone(),
         }
     }
 }
@@ -50,7 +51,7 @@ pub enum Response {
 pub enum OperationResponse {
     Get(Option<Row>),
     Insert(Result<(), String>),
-    Delete(Option<Row>),
+    Delete(bool),
 }
 
 impl Response {
@@ -69,7 +70,7 @@ impl Response {
                 }
                 OperationResponse::Delete(result) => {
                     let mut delete_response = DeleteResponse::new();
-                    delete_response.okay = result.is_some();
+                    delete_response.okay = result;
                     Some(ProtoResponseData::Delete(delete_response))
                 }
             },
@@ -90,14 +91,13 @@ impl Response {
             }
             Response::Batch(operation_responses) => {
                 let mut batch_response = BatchResponse::new();
-                batch_response.okay =
-                    operation_responses
-                        .iter()
-                        .all(|operation_response| match operation_response {
-                            OperationResponse::Insert(insert) => insert.is_ok(),
-                            OperationResponse::Delete(delete) => delete.is_some(),
-                            _ => panic!("Invalid operation response type"),
-                        });
+                batch_response.okay = operation_responses.into_iter().all(|operation_response| {
+                    match operation_response {
+                        OperationResponse::Insert(insert) => insert.is_ok(),
+                        OperationResponse::Delete(delete) => delete,
+                        _ => panic!("Invalid operation response type"),
+                    }
+                });
                 Some(ProtoResponseData::Batch(batch_response))
             }
         };
@@ -110,6 +110,7 @@ impl Response {
 pub async fn send_operations(
     operations: Vec<Operation>,
     mut senders: Vec<OperationSender>,
+    table_name: &String,
 ) -> Vec<OperationResponse> {
     let mut batches: Vec<_> = (0..senders.len()).map(|_| Vec::new()).collect();
     let mut responses = Vec::with_capacity(operations.len());
@@ -129,7 +130,10 @@ pub async fn send_operations(
         let sender = senders.get_mut(partition).unwrap();
 
         tracing::info!("Sending batch to thread {}", partition);
-        sender.send((batch, response_sender)).await.unwrap();
+        sender
+            .send((batch, table_name.clone(), response_sender))
+            .await
+            .unwrap();
         for operation_response in response_receiver.await.unwrap() {
             responses.push(operation_response);
         }

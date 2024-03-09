@@ -5,10 +5,11 @@ use futures::lock::Mutex;
 use futures::StreamExt;
 use monoio::net::TcpListener;
 use monoio::FusionDriver;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
-use storage::Row;
-use storage::SkipList;
+use storage::table::{read_table_schemas, Table};
+use storage::Memtable;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{filter, Layer};
@@ -52,7 +53,18 @@ async fn thread_main(
     senders: Vec<OperationSender>,
     mut receiver: OperationReceiver,
 ) {
-    let memtable = Arc::new(Mutex::new(SkipList::<Row>::default()));
+    let table_schemas = read_table_schemas().await.unwrap();
+    let tables: Arc<HashMap<String, Mutex<Table>>> = Arc::new(
+        table_schemas
+            .into_iter()
+            .map(|table_schema| {
+                (
+                    table_schema.name.clone(),
+                    Mutex::new(Table::new(Memtable::default(), table_schema)),
+                )
+            })
+            .collect(),
+    );
 
     let tcp_port = TCP_STARTING_PORT + partition;
     let tcp_listener = TcpListener::bind(format!("0.0.0.0:{}", tcp_port.to_string())).unwrap();
@@ -62,16 +74,19 @@ async fn thread_main(
         monoio::select! {
             stream = tcp_listener.accept() => {
                 monoio::spawn(handle_tcp_stream(
-                    stream.unwrap().0, partition, num_of_threads, senders.clone(), memtable.clone())
+                    stream.unwrap().0, partition, num_of_threads, senders.clone(), tables.clone())
                 );
             }
-            Some((operations, response_sender)) = receiver.next() => {
-                let mut memtable = memtable.lock().await;
+            Some((operations, table_name, response_sender)) = receiver.next() => {
+                let mut table = tables.get(&table_name).unwrap().lock().await;
+
                 let responses: Vec<_> = operations
                     .into_iter()
-                    .map(|operation| handle_operation(operation, &mut memtable)).collect();
+                    .map(|operation| handle_operation(operation, &mut table)).collect();
                 response_sender.send(responses).unwrap();
             }
         }
     }
 }
+
+// TODO allow batches to only affect one table

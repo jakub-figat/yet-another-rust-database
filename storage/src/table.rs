@@ -1,4 +1,5 @@
 use self::ColumnType::*;
+use crate::Memtable;
 use monoio::fs::OpenOptions;
 use regex::Regex;
 use std::collections::BTreeMap;
@@ -6,9 +7,24 @@ use std::fmt::{Display, Formatter};
 
 static TABLE_SCHEMAS_FILE_PATH: &str = "/var/lib/yard/schemas";
 
+pub struct Table {
+    pub memtable: Memtable,
+    pub table_schema: TableSchema,
+}
+
+impl Table {
+    pub fn new(memtable: Memtable, table_schema: TableSchema) -> Table {
+        Table {
+            memtable,
+            table_schema,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct TableSchema {
-    name: String,
-    columns: BTreeMap<String, Column>,
+    pub name: String,
+    pub columns: BTreeMap<String, Column>,
 }
 
 impl TableSchema {
@@ -54,9 +70,10 @@ impl Display for TableSchema {
     }
 }
 
-struct Column {
-    column_type: ColumnType,
-    nullable: bool,
+#[derive(Debug)]
+pub struct Column {
+    pub column_type: ColumnType,
+    pub nullable: bool,
 }
 
 impl Display for Column {
@@ -70,6 +87,7 @@ impl Display for Column {
     }
 }
 
+#[derive(Debug)]
 pub enum ColumnType {
     Varchar(usize),
     Int32,
@@ -86,17 +104,17 @@ pub enum ColumnType {
 impl ColumnType {
     pub fn from_string(type_string: &str) -> ColumnType {
         let decimal_regex = Regex::new(r"DECIMAL\((\d+),(\d+)\)").unwrap();
-        let varchar_regex = Regex::new(r"VARCHAR\(\d+\)").unwrap();
+        let varchar_regex = Regex::new(r"VARCHAR\((\d+)\)").unwrap();
 
         if let Some(decimal_captures) = decimal_regex.captures(type_string) {
             let num_of_digits = decimal_captures
-                .get(0)
+                .get(1)
                 .unwrap()
                 .as_str()
                 .parse::<usize>()
                 .unwrap();
             let decimal_places = decimal_captures
-                .get(1)
+                .get(2)
                 .unwrap()
                 .as_str()
                 .parse::<usize>()
@@ -106,7 +124,7 @@ impl ColumnType {
 
         if let Some(varchar_captures) = varchar_regex.captures(type_string) {
             let num_of_chars = varchar_captures
-                .get(0)
+                .get(1)
                 .unwrap()
                 .as_str()
                 .parse::<usize>()
@@ -146,32 +164,18 @@ impl Display for ColumnType {
     }
 }
 
-pub async fn read_table_schemas_from_file() -> Result<Vec<TableSchema>, String> {
+pub async fn read_table_schemas() -> Result<Vec<TableSchema>, String> {
     let file = OpenOptions::new()
         .read(true)
-        .create(true)
         .open(TABLE_SCHEMAS_FILE_PATH)
         .await
         .map_err(|e| e.to_string())?;
 
-    let mut buffer = Vec::with_capacity(16 * 1024);
-    let mut offset = 0usize;
-
-    loop {
-        let result = file.read_at(buffer, offset as u64).await;
-
-        buffer = result.1;
-        match result.0 {
-            Ok(bytes_read) => {
-                if bytes_read == 0 {
-                    break;
-                }
-                offset += bytes_read;
-            }
-            Err(error) => {
-                return Err(error.to_string());
-            }
-        }
+    let buffer = Vec::with_capacity(32 * 1024);
+    let (result, buffer) = file.read_at(buffer, 0).await;
+    let num_of_bytes = result.map_err(|e| e.to_string())?;
+    if num_of_bytes > buffer.capacity() {
+        return Err("Buffer overflow".to_string());
     }
 
     let schema_strings: Vec<_> = String::from_utf8(buffer)

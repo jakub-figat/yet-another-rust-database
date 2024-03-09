@@ -11,16 +11,10 @@ pub struct Row {
     pub sort_key: Value,
     pub primary_key: String,
     pub values: HashMap<String, Value>,
-    pub table: String,
 }
 
 impl Row {
-    pub fn new(
-        hash_key: String,
-        sort_key: Value,
-        values: HashMap<String, Value>,
-        table: String,
-    ) -> Row {
+    pub fn new(hash_key: String, sort_key: Value, values: HashMap<String, Value>) -> Row {
         let sort_key_string = sort_key.to_string();
         let mut primary_key = String::with_capacity(hash_key.len() + sort_key_string.len() + 1);
 
@@ -33,7 +27,6 @@ impl Row {
             sort_key,
             primary_key,
             values,
-            table,
         }
     }
 }
@@ -54,10 +47,9 @@ impl Default for Row {
     fn default() -> Self {
         Row {
             hash_key: "".to_string(),
-            sort_key: Varchar("".to_string(), 0),
+            sort_key: Varchar("".to_string()),
             primary_key: "".to_string(),
             values: HashMap::new(),
-            table: String::new(),
         }
     }
 }
@@ -67,7 +59,7 @@ impl GetSize for Row {
         self.hash_key.get_size()
             + self.sort_key.get_size()
             + self.primary_key.get_size()
-            + size_of::<Vec<Value>>()
+            + size_of::<HashMap<String, Value>>()
             + self.values.iter().map(|val| val.get_size()).sum::<usize>()
     }
 }

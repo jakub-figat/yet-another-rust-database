@@ -1,3 +1,4 @@
+use crate::Row;
 use get_size::GetSize;
 use rand::{thread_rng, Rng};
 use std::mem::size_of;
@@ -6,26 +7,20 @@ use std::ptr::NonNull;
 pub static MEGABYTE: usize = usize::pow(2, 20);
 static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
 
-type ListNode<T> = NonNull<Node<T>>;
+type ListNode = NonNull<Node>;
 
-pub struct SkipList<T>
-where
-    T: PartialEq + PartialOrd + Default + GetSize,
-{
-    pub head: ListNode<T>,
+pub struct Memtable {
+    pub head: ListNode,
     pub max_level: usize,
     pub level_probability: f64,
     pub memory_size: usize,
     pub size: usize,
 }
 
-impl<T> SkipList<T>
-where
-    T: PartialEq + PartialOrd + Default + GetSize,
-{
-    pub fn new(max_level: usize, level_probability: f64) -> SkipList<T> {
-        SkipList {
-            head: Node::new(T::default(), max_level),
+impl Memtable {
+    pub fn new(max_level: usize, level_probability: f64) -> Memtable {
+        Memtable {
+            head: Node::new(Row::default(), max_level),
             max_level,
             level_probability,
             memory_size: 0,
@@ -33,9 +28,9 @@ where
         }
     }
 
-    pub fn default() -> SkipList<T> {
-        SkipList {
-            head: Node::new(T::default(), 16),
+    pub fn default() -> Memtable {
+        Memtable {
+            head: Node::new(Row::default(), 16),
             max_level: 16,
             level_probability: 0.5,
             memory_size: 0,
@@ -43,13 +38,13 @@ where
         }
     }
 
-    pub fn get(&self, value: &T) -> Option<&T> {
+    pub fn get(&self, primary_key: &String) -> Option<&Row> {
         let mut current = self.head;
 
         unsafe {
             for level in (0..self.max_level).rev() {
                 while let Some(next_node) = (*current.as_ptr()).refs[level] {
-                    if value > &(*next_node.as_ptr()).value {
+                    if primary_key > &(*next_node.as_ptr()).row.primary_key {
                         current = next_node;
                     } else {
                         break;
@@ -58,8 +53,8 @@ where
             }
 
             if let Some(next_node) = (*current.as_ptr()).refs[0].clone() {
-                if value == &(*next_node.as_ptr()).value {
-                    return Some(&(*next_node.as_ptr()).value);
+                if primary_key == &(*next_node.as_ptr()).row.primary_key {
+                    return Some(&(*next_node.as_ptr()).row);
                 }
             }
         }
@@ -67,7 +62,7 @@ where
         None
     }
 
-    pub fn insert(&mut self, value: T) -> Result<(), String> {
+    pub fn insert(&mut self, row: Row) -> Result<(), String> {
         if self.memory_size > MEMTABLE_MAX_SIZE_MEGABYTES * MEGABYTE {
             Err(format!(
                 "Memtable reached max size of {} MB with {} nodes",
@@ -76,17 +71,17 @@ where
         }
 
         let new_level = self.get_random_level();
-        let update_vec = self.get_update_vec(&value, new_level);
+        let update_vec = self.get_update_vec(&row.primary_key, new_level);
 
         unsafe {
             if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
-                if &value == &(*next_node.as_ptr()).value {
-                    (*next_node.as_ptr()).value = value;
+                if &row.primary_key == &(*next_node.as_ptr()).row.primary_key {
+                    (*next_node.as_ptr()).row.values = row.values;
                     return Ok(());
                 }
             }
 
-            let new_node = Node::new(value, new_level);
+            let new_node = Node::new(row, new_level);
             for (level, placement_node) in update_vec.into_iter().rev().enumerate() {
                 (*new_node.as_ptr()).refs[level] = (*placement_node.as_ptr()).refs[level].clone();
                 (*placement_node.as_ptr()).refs[level] = Some(new_node);
@@ -98,43 +93,45 @@ where
         Ok(())
     }
 
-    pub fn delete(&mut self, value: &T) -> Option<T> {
-        let update_vec = self.get_update_vec(value, self.max_level);
+    pub fn delete(&mut self, primary_key: &String) -> bool {
+        let update_vec = self.get_update_vec(primary_key, self.max_level);
 
         unsafe {
             if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
-                let next_value = &(*next_node.as_ptr()).value;
-                if value == next_value {
+                let next_primary_key = &(*next_node.as_ptr()).row.primary_key;
+                if primary_key == next_primary_key {
                     let node_level = (*next_node.as_ptr()).refs.len();
                     for (level, placement_node) in
                         update_vec.iter().rev().take(node_level).enumerate()
                     {
-                        if &(*(*placement_node.as_ptr()).refs[level].unwrap().as_ptr()).value
-                            != next_value
+                        if &(*(*placement_node.as_ptr()).refs[level].unwrap().as_ptr())
+                            .row
+                            .primary_key
+                            != next_primary_key
                         {
                             break;
                         }
                         (*placement_node.as_ptr()).refs[level] = (*next_node.as_ptr()).refs[level];
                     }
-                    let boxed_node = Box::from_raw(next_node.as_ptr());
+                    let _ = Box::from_raw(next_node.as_ptr());
 
                     self.memory_size -= (*next_node.as_ptr()).get_memory_size();
                     self.size -= 1;
-                    return Some(boxed_node.value);
+                    return true;
                 }
             }
         }
-        None
+        false
     }
 
-    fn get_update_vec(&mut self, value: &T, level_limit: usize) -> Vec<ListNode<T>> {
+    fn get_update_vec(&mut self, primary_key: &String, level_limit: usize) -> Vec<ListNode> {
         let mut update_vec = Vec::with_capacity(self.max_level);
 
         unsafe {
             let mut current = self.head;
             for level in (0..self.max_level).rev() {
                 while let Some(next_node) = (*current.as_ptr()).refs[level] {
-                    if value > &(*next_node.as_ptr()).value {
+                    if primary_key > &(*next_node.as_ptr()).row.primary_key {
                         current = next_node;
                     } else {
                         break;
@@ -161,10 +158,7 @@ where
     }
 }
 
-impl<T> Drop for SkipList<T>
-where
-    T: PartialEq + PartialOrd + Default + GetSize,
-{
+impl Drop for Memtable {
     fn drop(&mut self) {
         let mut current = Some(self.head);
         unsafe {
@@ -176,29 +170,23 @@ where
     }
 }
 
-pub struct Node<T>
-where
-    T: PartialEq + PartialOrd + Default + GetSize,
-{
-    pub value: T,
-    pub refs: Vec<Option<ListNode<T>>>,
+pub struct Node {
+    pub row: Row,
+    pub refs: Vec<Option<ListNode>>,
 }
 
-impl<T> Node<T>
-where
-    T: PartialEq + PartialOrd + Default + GetSize,
-{
-    pub fn new(value: T, level: usize) -> ListNode<T> {
+impl Node {
+    pub fn new(row: Row, level: usize) -> ListNode {
         let boxed_node = Box::new(Node {
-            value,
+            row,
             refs: (0..level).map(|_| None).collect(),
         });
         NonNull::from(Box::leak(boxed_node))
     }
 
     pub fn get_memory_size(&self) -> usize {
-        self.value.get_size()
-            + size_of::<Vec<Option<ListNode<T>>>>()
-            + size_of::<Option<ListNode<T>>>() * self.refs.capacity()
+        self.row.get_size()
+            + size_of::<Vec<Option<ListNode>>>()
+            + size_of::<Option<ListNode>>() * self.refs.capacity()
     }
 }

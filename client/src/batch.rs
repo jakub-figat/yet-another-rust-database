@@ -4,20 +4,21 @@ use common::value::Value;
 use protos::{BatchItem, BatchItemData, GetRequest};
 use std::marker::PhantomData;
 
-pub struct Batch {
+pub struct Batch<T: Model> {
     pub items: Vec<BatchItem>,
+    _phantom_data: PhantomData<T>,
 }
 
-impl Batch {
-    pub fn insert<T: Model>(&mut self, instance: T) {
+impl<T: Model> Batch<T> {
+    pub fn insert(&mut self, instance: T) {
         let insert_request = instance.to_insert_request();
         let mut batch_item = BatchItem::new();
         batch_item.item = Some(BatchItemData::Insert(insert_request));
         self.items.push(batch_item);
     }
 
-    pub fn delete(&mut self, hash_key: String, sort_key: Value, table_name: &str) {
-        let delete_request = create_delete_request(hash_key, sort_key, table_name);
+    pub fn delete(&mut self, hash_key: String, sort_key: Value) {
+        let delete_request = create_delete_request(hash_key, sort_key);
         let mut batch_item = BatchItem::new();
         batch_item.item = Some(BatchItemData::Delete(delete_request));
         self.items.push(batch_item);
@@ -39,6 +40,6 @@ pub struct GetMany<T: Model> {
 
 impl<T: Model> GetMany<T> {
     pub fn add(&mut self, hash_key: String, sort_key: Value) {
-        self.items.push(create_get_request::<T>(hash_key, sort_key))
+        self.items.push(create_get_request(hash_key, sort_key))
     }
 }

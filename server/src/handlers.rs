@@ -16,13 +16,8 @@ use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use storage::table::Table;
+use storage::validation::validate_values_against_schema;
 use storage::Row;
-
-pub enum HandlerError {
-    Client(String),
-    Server(String),
-    Disconnected,
-}
 
 pub async fn handle_tcp_stream(
     mut stream: TcpStream,
@@ -136,7 +131,7 @@ async fn listen_for_tcp_request(
                         .unwrap();
                     response_receiver.await.unwrap().pop().unwrap()
                 }
-            };
+            }?;
             Response::Single(operation_response).to_proto_response()
         }
         Command::GetMany(operations, table_name) => {
@@ -150,7 +145,12 @@ async fn listen_for_tcp_request(
             tracing::info!("Sending get requests from thread {}", current_partition);
             let operation_responses =
                 send_operations(operations, senders.clone(), &table_name).await;
-            Response::GetMany(operation_responses).to_proto_response()
+            let mut responses = Vec::with_capacity(operation_responses.len());
+            for operation_response in operation_responses {
+                responses.push(operation_response?);
+            }
+
+            Response::GetMany(responses).to_proto_response()
         }
         Command::Batch(operations, table_name) => {
             if !tables.contains_key(&table_name) {
@@ -163,7 +163,12 @@ async fn listen_for_tcp_request(
             tracing::info!("Sending batches from thread {}", current_partition);
             let operation_responses =
                 send_operations(operations, senders.clone(), &table_name).await;
-            Response::Batch(operation_responses).to_proto_response()
+
+            let mut responses = Vec::with_capacity(operation_responses.len());
+            for operation_response in operation_responses {
+                responses.push(operation_response?);
+            }
+            Response::Batch(responses).to_proto_response()
         }
     };
 
@@ -171,22 +176,28 @@ async fn listen_for_tcp_request(
     Ok(proto_response)
 }
 
-pub fn handle_operation(operation: Operation, table: &mut Table) -> OperationResponse {
+pub fn handle_operation(
+    operation: Operation,
+    table: &mut Table,
+) -> Result<OperationResponse, HandlerError> {
     match operation {
         Get(hash_key, sort_key) => {
             let primary_key = format!("{}:{}", hash_key, sort_key);
             let val = table.memtable.get(&primary_key).cloned();
-            OperationResponse::Get(val)
+            Ok(OperationResponse::Get(val))
         }
         Insert(hash_key, sort_key, values) => {
+            validate_values_against_schema(&values, &table.table_schema)
+                .map_err(|e| HandlerError::Client(e))?;
+
             let val = table.memtable.insert(Row::new(hash_key, sort_key, values));
-            OperationResponse::Insert(val)
+            Ok(OperationResponse::Insert(val))
         }
         Delete(hash_key, sort_key) => {
             let primary_key = format!("{}:{}", hash_key, sort_key);
 
             let val = table.memtable.delete(&primary_key);
-            OperationResponse::Delete(val)
+            Ok(OperationResponse::Delete(val))
         }
     }
 }
@@ -200,4 +211,11 @@ async fn write_to_tcp(stream: &mut TcpStream, bytes: Vec<u8>) {
     if let (Err(error), _) = stream.write_all(bytes).await {
         tracing::error!("Couldn't write response to tcp, {}", error);
     }
+}
+
+#[derive(Debug)]
+pub enum HandlerError {
+    Client(String),
+    Server(String),
+    Disconnected,
 }

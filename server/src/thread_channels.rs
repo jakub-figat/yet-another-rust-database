@@ -1,3 +1,4 @@
+use crate::handlers::HandlerError;
 use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use futures::channel::{mpsc, oneshot};
@@ -14,7 +15,7 @@ pub type OperationSender = mpsc::UnboundedSender<(Vec<Operation>, String, Operat
 pub type OperationReceiver =
     mpsc::UnboundedReceiver<(Vec<Operation>, String, OperationResponseSender)>;
 
-pub type OperationResponseSender = oneshot::Sender<Vec<OperationResponse>>;
+pub type OperationResponseSender = oneshot::Sender<Vec<Result<OperationResponse, HandlerError>>>;
 
 #[derive(Debug)]
 pub enum Command {
@@ -111,7 +112,7 @@ pub async fn send_operations(
     operations: Vec<Operation>,
     mut senders: Vec<OperationSender>,
     table_name: &String,
-) -> Vec<OperationResponse> {
+) -> Vec<Result<OperationResponse, HandlerError>> {
     let mut batches: Vec<_> = (0..senders.len()).map(|_| Vec::new()).collect();
     let mut responses = Vec::with_capacity(operations.len());
 

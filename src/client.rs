@@ -40,10 +40,11 @@ async fn worker(connection_pool: Arc<ConnectionPool>, num: usize, objects_per_fu
     let mut connection = connection_pool.acquire().await.unwrap();
 
     let users: Vec<_> = (num * objects_per_future..(num + 1) * objects_per_future)
-        .map(|key| Posta {
+        .map(|key| User {
             hash_key: key.to_string(),
             sort_key: key.to_string(),
-            age: Some("abc".to_string()),
+            name: None,
+            age: 50,
         })
         .collect();
 
@@ -55,7 +56,7 @@ async fn worker(connection_pool: Arc<ConnectionPool>, num: usize, objects_per_fu
         println!(
             "{:?}",
             connection
-                .get::<Posta>(key.to_string(), Varchar(key.to_string()))
+                .get::<User>(key.to_string(), Varchar(key.to_string()))
                 .await
                 .unwrap()
                 .unwrap()
@@ -64,8 +65,9 @@ async fn worker(connection_pool: Arc<ConnectionPool>, num: usize, objects_per_fu
 }
 
 #[derive(DatabaseModel, Clone, Debug)]
-pub struct Posta {
+pub struct User {
     pub hash_key: String,
     pub sort_key: String,
-    pub age: Option<String>,
+    pub name: Option<String>,
+    pub age: u32,
 }

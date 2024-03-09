@@ -150,6 +150,8 @@ impl ConnectionInner {
         let insert_request = instance.to_insert_request();
 
         let mut request = ProtoRequest::new();
+        request.table = T::table_name();
+
         request.data = Some(ProtoRequestData::Insert(insert_request));
 
         let proto_response = send_request(self.streams[&partition].clone(), request).await?;
@@ -247,6 +249,12 @@ impl ConnectionInner {
                         responses.push(T::from_get_response(response));
                     }
                 }
+                ProtoResponseData::ClientError(client_error) => {
+                    Err(ConnectionError::Client(client_error.detail))?
+                }
+                ProtoResponseData::ServerError(server_error) => {
+                    Err(ConnectionError::Server(server_error.detail))?
+                }
                 _ => panic!("Invalid proto response type"),
             }
         }
@@ -294,6 +302,12 @@ impl ConnectionInner {
                     if !batch_response.okay {
                         return Ok(false);
                     }
+                }
+                ProtoResponseData::ClientError(client_error) => {
+                    Err(ConnectionError::Client(client_error.detail))?
+                }
+                ProtoResponseData::ServerError(server_error) => {
+                    Err(ConnectionError::Server(server_error.detail))?
                 }
                 _ => panic!("Invalid proto response type"),
             }

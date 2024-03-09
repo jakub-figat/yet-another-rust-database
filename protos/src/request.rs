@@ -193,7 +193,56 @@ impl Request {
         }
     }
 
-    // .BatchRequest batch = 4;
+    // .GetManyRequest get_many = 4;
+
+    pub fn get_many(&self) -> &GetManyRequest {
+        match self.data {
+            ::std::option::Option::Some(request::Data::GetMany(ref v)) => v,
+            _ => <GetManyRequest as ::protobuf::Message>::default_instance(),
+        }
+    }
+
+    pub fn clear_get_many(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_get_many(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(request::Data::GetMany(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_get_many(&mut self, v: GetManyRequest) {
+        self.data = ::std::option::Option::Some(request::Data::GetMany(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_get_many(&mut self) -> &mut GetManyRequest {
+        if let ::std::option::Option::Some(request::Data::GetMany(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(request::Data::GetMany(GetManyRequest::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(request::Data::GetMany(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_get_many(&mut self) -> GetManyRequest {
+        if self.has_get_many() {
+            match self.data.take() {
+                ::std::option::Option::Some(request::Data::GetMany(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            GetManyRequest::new()
+        }
+    }
+
+    // .BatchRequest batch = 5;
 
     pub fn batch(&self) -> &BatchRequest {
         match self.data {
@@ -243,7 +292,7 @@ impl Request {
     }
 
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(4);
+        let mut fields = ::std::vec::Vec::with_capacity(5);
         let mut oneofs = ::std::vec::Vec::with_capacity(1);
         fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, GetRequest>(
             "get",
@@ -265,6 +314,13 @@ impl Request {
             Request::delete,
             Request::mut_delete,
             Request::set_delete,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, GetManyRequest>(
+            "get_many",
+            Request::has_get_many,
+            Request::get_many,
+            Request::mut_get_many,
+            Request::set_get_many,
         ));
         fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, BatchRequest>(
             "batch",
@@ -302,6 +358,9 @@ impl ::protobuf::Message for Request {
                     self.data = ::std::option::Option::Some(request::Data::Delete(is.read_message()?));
                 },
                 34 => {
+                    self.data = ::std::option::Option::Some(request::Data::GetMany(is.read_message()?));
+                },
+                42 => {
                     self.data = ::std::option::Option::Some(request::Data::Batch(is.read_message()?));
                 },
                 tag => {
@@ -330,6 +389,10 @@ impl ::protobuf::Message for Request {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
                 },
+                &request::Data::GetMany(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+                },
                 &request::Data::Batch(ref v) => {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
@@ -353,8 +416,11 @@ impl ::protobuf::Message for Request {
                 &request::Data::Delete(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(3, v, os)?;
                 },
-                &request::Data::Batch(ref v) => {
+                &request::Data::GetMany(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(4, v, os)?;
+                },
+                &request::Data::Batch(ref v) => {
+                    ::protobuf::rt::write_message_field_with_cached_size(5, v, os)?;
                 },
             };
         }
@@ -375,6 +441,7 @@ impl ::protobuf::Message for Request {
     }
 
     fn clear(&mut self) {
+        self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
@@ -421,6 +488,8 @@ pub mod request {
         Insert(super::InsertRequest),
         // @@protoc_insertion_point(oneof_field:Request.delete)
         Delete(super::DeleteRequest),
+        // @@protoc_insertion_point(oneof_field:Request.get_many)
+        GetMany(super::GetManyRequest),
         // @@protoc_insertion_point(oneof_field:Request.batch)
         Batch(super::BatchRequest),
     }
@@ -938,6 +1007,129 @@ impl ::protobuf::reflect::ProtobufValue for DeleteRequest {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
+// @@protoc_insertion_point(message:GetManyRequest)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct GetManyRequest {
+    // message fields
+    // @@protoc_insertion_point(field:GetManyRequest.items)
+    pub items: ::std::vec::Vec<GetRequest>,
+    // special fields
+    // @@protoc_insertion_point(special_field:GetManyRequest.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a GetManyRequest {
+    fn default() -> &'a GetManyRequest {
+        <GetManyRequest as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl GetManyRequest {
+    pub fn new() -> GetManyRequest {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(1);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        fields.push(::protobuf::reflect::rt::v2::make_vec_simpler_accessor::<_, _>(
+            "items",
+            |m: &GetManyRequest| { &m.items },
+            |m: &mut GetManyRequest| { &mut m.items },
+        ));
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<GetManyRequest>(
+            "GetManyRequest",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for GetManyRequest {
+    const NAME: &'static str = "GetManyRequest";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                10 => {
+                    self.items.push(is.read_message()?);
+                },
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        for value in &self.items {
+            let len = value.compute_size();
+            my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+        };
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        for v in &self.items {
+            ::protobuf::rt::write_message_field_with_cached_size(1, v, os)?;
+        };
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> GetManyRequest {
+        GetManyRequest::new()
+    }
+
+    fn clear(&mut self) {
+        self.items.clear();
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static GetManyRequest {
+        static instance: GetManyRequest = GetManyRequest {
+            items: ::std::vec::Vec::new(),
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for GetManyRequest {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("GetManyRequest").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for GetManyRequest {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for GetManyRequest {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
 // @@protoc_insertion_point(message:BatchRequest)
 #[derive(PartialEq,Clone,Default,Debug)]
 pub struct BatchRequest {
@@ -1341,12 +1533,13 @@ pub mod batch_item {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\rrequest.proto\x1a\x0ccommon.proto\"\xad\x01\n\x07Request\x12\x1f\n\
+    \n\rrequest.proto\x1a\x0ccommon.proto\"\xdb\x01\n\x07Request\x12\x1f\n\
     \x03get\x18\x01\x20\x01(\x0b2\x0b.GetRequestH\0R\x03get\x12(\n\x06insert\
     \x18\x02\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06insert\x12(\n\x06delete\
-    \x18\x03\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06delete\x12%\n\x05batch\
-    \x18\x04\x20\x01(\x0b2\r.BatchRequestH\0R\x05batchB\x06\n\x04data\"`\n\n\
-    GetRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\
+    \x18\x03\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06delete\x12,\n\x08get_man\
+    y\x18\x04\x20\x01(\x0b2\x0f.GetManyRequestH\0R\x07getMany\x12%\n\x05batc\
+    h\x18\x05\x20\x01(\x0b2\r.BatchRequestH\0R\x05batchB\x06\n\x04data\"`\n\
+    \nGetRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\
     \x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x12\x14\n\x05ta\
     ble\x18\x03\x20\x01(\tR\x05table\"\x83\x01\n\rInsertRequest\x12\x19\n\
     \x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\
@@ -1354,11 +1547,12 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     (\x0b2\x06.ValueR\x06values\x12\x14\n\x05table\x18\x04\x20\x01(\tR\x05ta\
     ble\"c\n\rDeleteRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07has\
     hKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x12\
-    \x14\n\x05table\x18\x03\x20\x01(\tR\x05table\"0\n\x0cBatchRequest\x12\
-    \x20\n\x05items\x18\x01\x20\x03(\x0b2\n.BatchItemR\x05items\"g\n\tBatchI\
-    tem\x12(\n\x06insert\x18\x01\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06inse\
-    rt\x12(\n\x06delete\x18\x02\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06delet\
-    eB\x06\n\x04itemb\x06proto3\
+    \x14\n\x05table\x18\x03\x20\x01(\tR\x05table\"3\n\x0eGetManyRequest\x12!\
+    \n\x05items\x18\x01\x20\x03(\x0b2\x0b.GetRequestR\x05items\"0\n\x0cBatch\
+    Request\x12\x20\n\x05items\x18\x01\x20\x03(\x0b2\n.BatchItemR\x05items\"\
+    g\n\tBatchItem\x12(\n\x06insert\x18\x01\x20\x01(\x0b2\x0e.InsertRequestH\
+    \0R\x06insert\x12(\n\x06delete\x18\x02\x20\x01(\x0b2\x0e.DeleteRequestH\
+    \0R\x06deleteB\x06\n\x04itemb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -1377,11 +1571,12 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(1);
             deps.push(super::common::file_descriptor().clone());
-            let mut messages = ::std::vec::Vec::with_capacity(6);
+            let mut messages = ::std::vec::Vec::with_capacity(7);
             messages.push(Request::generated_message_descriptor_data());
             messages.push(GetRequest::generated_message_descriptor_data());
             messages.push(InsertRequest::generated_message_descriptor_data());
             messages.push(DeleteRequest::generated_message_descriptor_data());
+            messages.push(GetManyRequest::generated_message_descriptor_data());
             messages.push(BatchRequest::generated_message_descriptor_data());
             messages.push(BatchItem::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(0);

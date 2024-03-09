@@ -1,11 +1,13 @@
-use crate::batch::{get_batch_item_hash_key, Batch};
+use crate::batch::{get_batch_item_hash_key, Batch, GetMany};
 use crate::connection_util::{create_delete_request, create_get_request};
 use crate::model::Model;
 use crate::pool::ConnectionPool;
 use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use protobuf::Message;
-use protos::{BatchRequest, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData};
+use protos::{
+    BatchRequest, GetManyRequest, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
+};
 use std::collections::HashMap;
 use std::net::SocketAddrV4;
 use std::sync::{Arc, Weak};
@@ -59,8 +61,15 @@ impl Connection {
             .await
     }
 
-    pub async fn send_batch(&mut self, batch: Batch) -> Result<bool, ConnectionError> {
-        self.inner.as_mut().unwrap().send_batch(batch).await
+    pub async fn get_many<T: Model>(
+        &mut self,
+        get_many: GetMany<T>,
+    ) -> Result<Vec<T>, ConnectionError> {
+        self.inner.as_mut().unwrap().get_many(get_many).await
+    }
+
+    pub async fn batch(&mut self, batch: Batch) -> Result<bool, ConnectionError> {
+        self.inner.as_mut().unwrap().batch(batch).await
     }
 }
 
@@ -191,7 +200,56 @@ impl ConnectionInner {
         }
     }
 
-    pub async fn send_batch(&mut self, batch: Batch) -> Result<bool, ConnectionError> {
+    async fn get_many<T: Model>(
+        &mut self,
+        get_many: GetMany<T>,
+    ) -> Result<Vec<T>, ConnectionError> {
+        if get_many.items.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut item_batches: Vec<_> = (0..self.streams.len()).map(|_| Vec::new()).collect();
+        let mut responses = Vec::with_capacity(get_many.items.len());
+
+        for item in get_many.items {
+            let partition = get_hash_key_target_partition(&item.hash_key, self.streams.len());
+            item_batches[partition].push(item);
+        }
+
+        let mut join_set = JoinSet::new();
+        for (partition, item_batch) in item_batches
+            .into_iter()
+            .enumerate()
+            .filter(|(_, batch)| !batch.is_empty())
+        {
+            let mut get_many_request = GetManyRequest::new();
+            get_many_request.items = item_batch;
+
+            let mut proto_request = ProtoRequest::new();
+            proto_request.data = Some(ProtoRequestData::GetMany(get_many_request));
+
+            join_set.spawn(send_request(
+                self.streams[&partition].clone(),
+                proto_request,
+            ));
+        }
+
+        while let Some(result) = join_set.join_next().await {
+            let response = result.unwrap()?;
+            match response.data.unwrap() {
+                ProtoResponseData::GetMany(get_many_response) => {
+                    for response in get_many_response.items {
+                        responses.push(T::from_get_response(response));
+                    }
+                }
+                _ => panic!("Invalid proto response type"),
+            }
+        }
+
+        Ok(responses)
+    }
+
+    async fn batch(&mut self, batch: Batch) -> Result<bool, ConnectionError> {
         if batch.items.is_empty() {
             return Ok(true);
         }
@@ -235,28 +293,6 @@ impl ConnectionInner {
         }
 
         Ok(true)
-        // let proto_response = self.send_request(request, partition).await?;
-
-        // match proto_response.data.unwrap() {
-        //     ProtoResponseData::Batch(batch_response) => Ok(BatchResult {
-        //         items: batch_response
-        //             .items
-        //             .into_iter()
-        //             .map(|item| match item.item.unwrap() {
-        //                 BatchResponseItemData::Insert(insert_response) => insert_response.okay,
-        //                 BatchResponseItemData::Delete(delete_response) => delete_response.okay,
-        //                 _ => panic!("Invalid batch response item data type"),
-        //             })
-        //             .collect(),
-        //     }),
-        //     ProtoResponseData::ClientError(client_error) => {
-        //         Err(ConnectionError::Client(client_error.detail))
-        //     }
-        //     ProtoResponseData::ServerError(server_error) => {
-        //         Err(ConnectionError::Server(server_error.detail))
-        //     }
-        //     _ => panic!("Invalid proto response type"),
-        // }
     }
 }
 

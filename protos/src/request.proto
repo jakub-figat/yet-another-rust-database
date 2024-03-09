@@ -7,7 +7,8 @@ message Request {
         GetRequest get = 1;
         InsertRequest insert = 2;
         DeleteRequest delete = 3;
-        BatchRequest batch = 4;
+        GetManyRequest get_many = 4;
+        BatchRequest batch = 5;
     }
 }
 
@@ -29,6 +30,10 @@ message DeleteRequest {
     string hash_key = 1;
     Value sort_key = 2;
     string table = 3;
+}
+
+message GetManyRequest {
+    repeated GetRequest items = 1;
 }
 
 

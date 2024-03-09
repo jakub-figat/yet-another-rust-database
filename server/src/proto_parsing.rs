@@ -42,6 +42,17 @@ pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String>
                 delete.table,
             )))
         }
+        ProtoRequestData::GetMany(get_many) => {
+            let operations: Vec<_> = get_many
+                .items
+                .into_iter()
+                .map(|get| {
+                    let sort_key = parse_value_from_proto(get.sort_key.unwrap());
+                    Operation::Get(get.hash_key, sort_key, get.table)
+                })
+                .collect();
+            Ok(Command::GetMany(operations))
+        }
         ProtoRequestData::Batch(batch) => {
             let mut operations = Vec::with_capacity(batch.items.len());
             for item in batch.items {

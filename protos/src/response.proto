@@ -8,9 +8,10 @@ message Response {
         GetResponse get = 1;
         InsertResponse insert = 2;
         DeleteResponse delete = 3;
-        BatchResponse batch = 4;
-        ClientError client_error = 5;
-        ServerError server_error = 6;
+        GetManyResponse get_many = 4;
+        BatchResponse batch = 5;
+        ClientError client_error = 6;
+        ServerError server_error = 7;
     }
 }
 
@@ -28,6 +29,10 @@ message InsertResponse {
 
 message DeleteResponse {
     bool okay = 1;
+}
+
+message GetManyResponse {
+    repeated GetResponse items = 1;
 }
 
 message BatchResponse {

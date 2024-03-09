@@ -129,9 +129,14 @@ async fn listen_for_tcp_request(
             };
             Response::Single(operation_response).to_proto_response()
         }
-        Command::Batch(commands) => {
+        Command::GetMany(operations) => {
+            tracing::info!("Sending get requests from thread {}", current_partition);
+            let operation_responses = send_operations(operations, senders.clone()).await;
+            Response::GetMany(operation_responses).to_proto_response()
+        }
+        Command::Batch(operations) => {
             tracing::info!("Sending batches from thread {}", current_partition);
-            let operation_responses = send_operations(commands, senders.clone()).await;
+            let operation_responses = send_operations(operations, senders.clone()).await;
             Response::Batch(operation_responses).to_proto_response()
         }
     };

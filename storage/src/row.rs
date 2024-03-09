@@ -2,6 +2,7 @@ use common::value::Value;
 use common::value::Value::Varchar;
 use get_size::GetSize;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::mem::size_of;
 
 #[derive(Clone, Debug)]
@@ -9,12 +10,17 @@ pub struct Row {
     pub hash_key: String,
     pub sort_key: Value,
     pub primary_key: String,
-    pub values: Vec<Value>,
+    pub values: HashMap<String, Value>,
     pub table: String,
 }
 
 impl Row {
-    pub fn new(hash_key: String, sort_key: Value, values: Vec<Value>, table: String) -> Row {
+    pub fn new(
+        hash_key: String,
+        sort_key: Value,
+        values: HashMap<String, Value>,
+        table: String,
+    ) -> Row {
         let sort_key_string = sort_key.to_string();
         let mut primary_key = String::with_capacity(hash_key.len() + sort_key_string.len() + 1);
 
@@ -50,7 +56,7 @@ impl Default for Row {
             hash_key: "".to_string(),
             sort_key: Varchar("".to_string(), 0),
             primary_key: "".to_string(),
-            values: Vec::new(),
+            values: HashMap::new(),
             table: String::new(),
         }
     }

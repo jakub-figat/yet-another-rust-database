@@ -2,6 +2,7 @@ use crate::thread_channels::{Command, Operation};
 use protobuf::Message;
 use protos::util::parse_value_from_proto;
 use protos::{BatchItemData, ProtoRequest, ProtoRequestData};
+use std::collections::HashMap;
 
 pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String> {
     let request = ProtoRequest::parse_from_bytes(&buffer).map_err(|err| err.to_string());
@@ -22,10 +23,10 @@ pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String>
         }
         ProtoRequestData::Insert(insert) => {
             let sort_key = parse_value_from_proto(insert.sort_key.unwrap());
-            let values: Vec<_> = insert
+            let values: HashMap<_, _> = insert
                 .values
                 .into_iter()
-                .map(|value| parse_value_from_proto(value))
+                .map(|(key, value)| (key, parse_value_from_proto(value)))
                 .collect();
             Ok(Command::Single(Operation::Insert(
                 insert.hash_key,
@@ -59,10 +60,10 @@ pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String>
                 let operation = match item.item.unwrap() {
                     BatchItemData::Insert(insert) => {
                         let sort_key = parse_value_from_proto(insert.sort_key.unwrap());
-                        let values: Vec<_> = insert
+                        let values: HashMap<_, _> = insert
                             .values
                             .into_iter()
-                            .map(|value| parse_value_from_proto(value))
+                            .map(|(key, value)| (key, parse_value_from_proto(value)))
                             .collect();
                         Ok::<Operation, String>(Operation::Insert(
                             insert.hash_key,

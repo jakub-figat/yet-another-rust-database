@@ -66,8 +66,7 @@ fn proc_from_get_response(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
 
     let field_operations: TokenStream = fields
         .iter()
-        .enumerate()
-        .map(|(index, field)| {
+        .map(|field| {
             let field_ident = field.ident.as_ref().unwrap();
             let field_name = field_ident.to_string();
 
@@ -76,8 +75,8 @@ fn proc_from_get_response(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
                     let #field_ident = match parse_value_from_proto(
                     get_response
                     .values
-                    .get(#index)
-                    .expect(&format!("No value for field '{}' on index {}", #field_name, #index))
+                    .get(#field_name)
+                    .expect(&format!("No value for field '{}'", #field_name))
                     .clone(),
                 ) {
                     #value_quote
@@ -99,7 +98,6 @@ fn proc_from_get_response(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
 
     quote! {
         let hash_key = get_response.hash_key.clone();
-
         #sort_key_operation
         #field_operations
 
@@ -121,10 +119,11 @@ fn proc_to_insert_request(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
     let field_operations: TokenStream = fields
         .into_iter()
         .map(|field| {
+            let field_name = field.ident.as_ref().unwrap().to_string();
             let value_quote = parse_to_value_quote(field);
             quote! {
                 #value_quote
-                values.push(parse_proto_from_value(value));
+                values.insert(#field_name.to_string(), parse_proto_from_value(value));
             }
         })
         .collect();
@@ -133,7 +132,7 @@ fn proc_to_insert_request(sort_key: &Field, fields: &Vec<Field>) -> TokenStream 
         let mut insert_request = InsertRequest::new();
         insert_request.hash_key = self.hash_key.clone();
 
-        let mut values = Vec::new();
+        let mut values = HashMap::new();
 
         #sort_key_operation
         #field_operations

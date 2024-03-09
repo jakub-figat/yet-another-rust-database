@@ -12,6 +12,7 @@ use monoio::net::TcpStream;
 use protobuf::Message;
 use protos::util::client_error_to_proto_response;
 use protos::{ProtoResponse, ProtoResponseData, ServerError};
+use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use storage::{Row, SkipList};
@@ -149,7 +150,7 @@ pub fn handle_operation(operation: Operation, memtable: &mut SkipList<Row>) -> O
     match operation {
         Get(hash_key, sort_key, table) => {
             let val = memtable
-                .get(&Row::new(hash_key, sort_key, vec![], table))
+                .get(&Row::new(hash_key, sort_key, HashMap::new(), table))
                 .cloned();
             OperationResponse::Get(val)
         }
@@ -158,7 +159,7 @@ pub fn handle_operation(operation: Operation, memtable: &mut SkipList<Row>) -> O
             OperationResponse::Insert(val)
         }
         Delete(hash_key, sort_key, table) => {
-            let val = memtable.delete(&Row::new(hash_key, sort_key, vec![], table));
+            let val = memtable.delete(&Row::new(hash_key, sort_key, HashMap::new(), table));
             OperationResponse::Delete(val)
         }
     }

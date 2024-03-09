@@ -7,6 +7,7 @@ use protos::util::{
     parse_value_from_proto,
 };
 use protos::{DeleteRequest, GetResponse, InsertRequest};
+use std::collections::HashMap;
 use std::net::SocketAddrV4;
 use std::str::FromStr;
 use std::sync::Arc;

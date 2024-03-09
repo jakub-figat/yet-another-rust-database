@@ -7,6 +7,7 @@ use protos::{
     BatchResponse, DeleteResponse, GetManyResponse, GetResponse, InsertResponse, ProtoResponse,
     ProtoResponseData,
 };
+use std::collections::HashMap;
 use storage::Row;
 
 pub type OperationSender = mpsc::UnboundedSender<(Vec<Operation>, OperationResponseSender)>;
@@ -24,7 +25,7 @@ pub enum Command {
 #[derive(Debug)]
 pub enum Operation {
     Get(String, Value, String),
-    Insert(String, Value, Vec<Value>, String),
+    Insert(String, Value, HashMap<String, Value>, String),
     Delete(String, Value, String),
 }
 
@@ -144,7 +145,7 @@ fn row_to_get_response(row: Row) -> GetResponse {
     get_response.values = row
         .values
         .into_iter()
-        .map(|value| parse_proto_from_value(value))
+        .map(|(key, value)| (key, parse_proto_from_value(value)))
         .collect();
 
     get_response

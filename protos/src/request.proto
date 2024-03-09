@@ -22,7 +22,7 @@ message GetRequest {
 message InsertRequest {
     string hash_key = 1;
     Value sort_key = 2;
-    repeated Value values = 3;
+    map<string, Value> values = 3;
     string table = 4;
 }
 

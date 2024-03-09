@@ -807,6 +807,7 @@ dependencies = [
  "get-size",
  "monoio",
  "rand",
+ "regex",
 ]
 
 [[package]]

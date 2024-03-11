@@ -11,8 +11,10 @@ message Response {
         GetManyResponse get_many = 4;
         BatchResponse batch = 5;
         TransactionResponse transaction = 6;
-        ClientError client_error = 7;
-        ServerError server_error = 8;
+        SyncModelResponse model = 7;
+        DeleteTableResponse delete_table = 8;
+        ClientError client_error = 9;
+        ServerError server_error = 10;
     }
 }
 
@@ -42,6 +44,11 @@ message TransactionResponse {
     bool okay = 1;
     uint64 transaction_id = 2;
 }
+
+message SyncModelResponse {}
+
+message DeleteTableResponse {}
+
 
 message ClientError {
     string detail = 1;

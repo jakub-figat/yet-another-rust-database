@@ -340,7 +340,105 @@ impl Response {
         }
     }
 
-    // .ClientError client_error = 7;
+    // .SyncModelResponse model = 7;
+
+    pub fn model(&self) -> &SyncModelResponse {
+        match self.data {
+            ::std::option::Option::Some(response::Data::Model(ref v)) => v,
+            _ => <SyncModelResponse as ::protobuf::Message>::default_instance(),
+        }
+    }
+
+    pub fn clear_model(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_model(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(response::Data::Model(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_model(&mut self, v: SyncModelResponse) {
+        self.data = ::std::option::Option::Some(response::Data::Model(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_model(&mut self) -> &mut SyncModelResponse {
+        if let ::std::option::Option::Some(response::Data::Model(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(response::Data::Model(SyncModelResponse::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(response::Data::Model(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_model(&mut self) -> SyncModelResponse {
+        if self.has_model() {
+            match self.data.take() {
+                ::std::option::Option::Some(response::Data::Model(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            SyncModelResponse::new()
+        }
+    }
+
+    // .DeleteTableResponse delete_table = 8;
+
+    pub fn delete_table(&self) -> &DeleteTableResponse {
+        match self.data {
+            ::std::option::Option::Some(response::Data::DeleteTable(ref v)) => v,
+            _ => <DeleteTableResponse as ::protobuf::Message>::default_instance(),
+        }
+    }
+
+    pub fn clear_delete_table(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_delete_table(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(response::Data::DeleteTable(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_delete_table(&mut self, v: DeleteTableResponse) {
+        self.data = ::std::option::Option::Some(response::Data::DeleteTable(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_delete_table(&mut self) -> &mut DeleteTableResponse {
+        if let ::std::option::Option::Some(response::Data::DeleteTable(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(response::Data::DeleteTable(DeleteTableResponse::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(response::Data::DeleteTable(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_delete_table(&mut self) -> DeleteTableResponse {
+        if self.has_delete_table() {
+            match self.data.take() {
+                ::std::option::Option::Some(response::Data::DeleteTable(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            DeleteTableResponse::new()
+        }
+    }
+
+    // .ClientError client_error = 9;
 
     pub fn client_error(&self) -> &ClientError {
         match self.data {
@@ -389,7 +487,7 @@ impl Response {
         }
     }
 
-    // .ServerError server_error = 8;
+    // .ServerError server_error = 10;
 
     pub fn server_error(&self) -> &ServerError {
         match self.data {
@@ -439,7 +537,7 @@ impl Response {
     }
 
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(8);
+        let mut fields = ::std::vec::Vec::with_capacity(10);
         let mut oneofs = ::std::vec::Vec::with_capacity(1);
         fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, GetResponse>(
             "get",
@@ -482,6 +580,20 @@ impl Response {
             Response::transaction,
             Response::mut_transaction,
             Response::set_transaction,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, SyncModelResponse>(
+            "model",
+            Response::has_model,
+            Response::model,
+            Response::mut_model,
+            Response::set_model,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, DeleteTableResponse>(
+            "delete_table",
+            Response::has_delete_table,
+            Response::delete_table,
+            Response::mut_delete_table,
+            Response::set_delete_table,
         ));
         fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, ClientError>(
             "client_error",
@@ -535,9 +647,15 @@ impl ::protobuf::Message for Response {
                     self.data = ::std::option::Option::Some(response::Data::Transaction(is.read_message()?));
                 },
                 58 => {
-                    self.data = ::std::option::Option::Some(response::Data::ClientError(is.read_message()?));
+                    self.data = ::std::option::Option::Some(response::Data::Model(is.read_message()?));
                 },
                 66 => {
+                    self.data = ::std::option::Option::Some(response::Data::DeleteTable(is.read_message()?));
+                },
+                74 => {
+                    self.data = ::std::option::Option::Some(response::Data::ClientError(is.read_message()?));
+                },
+                82 => {
                     self.data = ::std::option::Option::Some(response::Data::ServerError(is.read_message()?));
                 },
                 tag => {
@@ -578,6 +696,14 @@ impl ::protobuf::Message for Response {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
                 },
+                &response::Data::Model(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+                },
+                &response::Data::DeleteTable(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+                },
                 &response::Data::ClientError(ref v) => {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
@@ -614,11 +740,17 @@ impl ::protobuf::Message for Response {
                 &response::Data::Transaction(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(6, v, os)?;
                 },
-                &response::Data::ClientError(ref v) => {
+                &response::Data::Model(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(7, v, os)?;
                 },
-                &response::Data::ServerError(ref v) => {
+                &response::Data::DeleteTable(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(8, v, os)?;
+                },
+                &response::Data::ClientError(ref v) => {
+                    ::protobuf::rt::write_message_field_with_cached_size(9, v, os)?;
+                },
+                &response::Data::ServerError(ref v) => {
+                    ::protobuf::rt::write_message_field_with_cached_size(10, v, os)?;
                 },
             };
         }
@@ -639,6 +771,8 @@ impl ::protobuf::Message for Response {
     }
 
     fn clear(&mut self) {
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
@@ -695,6 +829,10 @@ pub mod response {
         Batch(super::BatchResponse),
         // @@protoc_insertion_point(oneof_field:Response.transaction)
         Transaction(super::TransactionResponse),
+        // @@protoc_insertion_point(oneof_field:Response.model)
+        Model(super::SyncModelResponse),
+        // @@protoc_insertion_point(oneof_field:Response.delete_table)
+        DeleteTable(super::DeleteTableResponse),
         // @@protoc_insertion_point(oneof_field:Response.client_error)
         ClientError(super::ClientError),
         // @@protoc_insertion_point(oneof_field:Response.server_error)
@@ -1522,6 +1660,212 @@ impl ::protobuf::reflect::ProtobufValue for TransactionResponse {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
+// @@protoc_insertion_point(message:SyncModelResponse)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct SyncModelResponse {
+    // special fields
+    // @@protoc_insertion_point(special_field:SyncModelResponse.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a SyncModelResponse {
+    fn default() -> &'a SyncModelResponse {
+        <SyncModelResponse as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl SyncModelResponse {
+    pub fn new() -> SyncModelResponse {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(0);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<SyncModelResponse>(
+            "SyncModelResponse",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for SyncModelResponse {
+    const NAME: &'static str = "SyncModelResponse";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> SyncModelResponse {
+        SyncModelResponse::new()
+    }
+
+    fn clear(&mut self) {
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static SyncModelResponse {
+        static instance: SyncModelResponse = SyncModelResponse {
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for SyncModelResponse {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("SyncModelResponse").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for SyncModelResponse {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for SyncModelResponse {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
+// @@protoc_insertion_point(message:DeleteTableResponse)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct DeleteTableResponse {
+    // special fields
+    // @@protoc_insertion_point(special_field:DeleteTableResponse.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a DeleteTableResponse {
+    fn default() -> &'a DeleteTableResponse {
+        <DeleteTableResponse as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl DeleteTableResponse {
+    pub fn new() -> DeleteTableResponse {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(0);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<DeleteTableResponse>(
+            "DeleteTableResponse",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for DeleteTableResponse {
+    const NAME: &'static str = "DeleteTableResponse";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> DeleteTableResponse {
+        DeleteTableResponse::new()
+    }
+
+    fn clear(&mut self) {
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static DeleteTableResponse {
+        static instance: DeleteTableResponse = DeleteTableResponse {
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for DeleteTableResponse {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("DeleteTableResponse").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for DeleteTableResponse {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for DeleteTableResponse {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
 // @@protoc_insertion_point(message:ClientError)
 #[derive(PartialEq,Clone,Default,Debug)]
 pub struct ClientError {
@@ -1767,29 +2111,32 @@ impl ::protobuf::reflect::ProtobufValue for ServerError {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x0eresponse.proto\x1a\x0ccommon.proto\"\x81\x03\n\x08Response\x12\x20\
+    \n\x0eresponse.proto\x1a\x0ccommon.proto\"\xe8\x03\n\x08Response\x12\x20\
     \n\x03get\x18\x01\x20\x01(\x0b2\x0c.GetResponseH\0R\x03get\x12)\n\x06ins\
     ert\x18\x02\x20\x01(\x0b2\x0f.InsertResponseH\0R\x06insert\x12)\n\x06del\
     ete\x18\x03\x20\x01(\x0b2\x0f.DeleteResponseH\0R\x06delete\x12-\n\x08get\
     _many\x18\x04\x20\x01(\x0b2\x10.GetManyResponseH\0R\x07getMany\x12&\n\
     \x05batch\x18\x05\x20\x01(\x0b2\x0e.BatchResponseH\0R\x05batch\x128\n\
     \x0btransaction\x18\x06\x20\x01(\x0b2\x14.TransactionResponseH\0R\x0btra\
-    nsaction\x121\n\x0cclient_error\x18\x07\x20\x01(\x0b2\x0c.ClientErrorH\0\
-    R\x0bclientError\x121\n\x0cserver_error\x18\x08\x20\x01(\x0b2\x0c.Server\
-    ErrorH\0R\x0bserverErrorB\x06\n\x04data\"\xd6\x01\n\x0bGetResponse\x12\
-    \x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\
-    \x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x120\n\x06values\x18\x03\x20\
-    \x03(\x0b2\x18.GetResponse.ValuesEntryR\x06values\x12\x14\n\x05table\x18\
-    \x04\x20\x01(\tR\x05table\x1aA\n\x0bValuesEntry\x12\x10\n\x03key\x18\x01\
-    \x20\x01(\tR\x03key\x12\x1c\n\x05value\x18\x02\x20\x01(\x0b2\x06.ValueR\
-    \x05value:\x028\x01\"\x10\n\x0eInsertResponse\"$\n\x0eDeleteResponse\x12\
-    \x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"5\n\x0fGetManyResponse\x12\
-    \"\n\x05items\x18\x01\x20\x03(\x0b2\x0c.GetResponseR\x05items\"#\n\rBatc\
-    hResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"P\n\x13Transa\
-    ctionResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\x12%\n\x0e\
-    transaction_id\x18\x02\x20\x01(\x04R\rtransactionId\"%\n\x0bClientError\
-    \x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detail\"%\n\x0bServerError\
-    \x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detailb\x06proto3\
+    nsaction\x12*\n\x05model\x18\x07\x20\x01(\x0b2\x12.SyncModelResponseH\0R\
+    \x05model\x129\n\x0cdelete_table\x18\x08\x20\x01(\x0b2\x14.DeleteTableRe\
+    sponseH\0R\x0bdeleteTable\x121\n\x0cclient_error\x18\t\x20\x01(\x0b2\x0c\
+    .ClientErrorH\0R\x0bclientError\x121\n\x0cserver_error\x18\n\x20\x01(\
+    \x0b2\x0c.ServerErrorH\0R\x0bserverErrorB\x06\n\x04data\"\xd6\x01\n\x0bG\
+    etResponse\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\
+    \x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x120\n\x06value\
+    s\x18\x03\x20\x03(\x0b2\x18.GetResponse.ValuesEntryR\x06values\x12\x14\n\
+    \x05table\x18\x04\x20\x01(\tR\x05table\x1aA\n\x0bValuesEntry\x12\x10\n\
+    \x03key\x18\x01\x20\x01(\tR\x03key\x12\x1c\n\x05value\x18\x02\x20\x01(\
+    \x0b2\x06.ValueR\x05value:\x028\x01\"\x10\n\x0eInsertResponse\"$\n\x0eDe\
+    leteResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"5\n\x0fGet\
+    ManyResponse\x12\"\n\x05items\x18\x01\x20\x03(\x0b2\x0c.GetResponseR\x05\
+    items\"#\n\rBatchResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04oka\
+    y\"P\n\x13TransactionResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\
+    \x04okay\x12%\n\x0etransaction_id\x18\x02\x20\x01(\x04R\rtransactionId\"\
+    \x13\n\x11SyncModelResponse\"\x15\n\x13DeleteTableResponse\"%\n\x0bClien\
+    tError\x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detail\"%\n\x0bServerE\
+    rror\x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detailb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -1808,7 +2155,7 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(1);
             deps.push(super::common::file_descriptor().clone());
-            let mut messages = ::std::vec::Vec::with_capacity(9);
+            let mut messages = ::std::vec::Vec::with_capacity(11);
             messages.push(Response::generated_message_descriptor_data());
             messages.push(GetResponse::generated_message_descriptor_data());
             messages.push(InsertResponse::generated_message_descriptor_data());
@@ -1816,6 +2163,8 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
             messages.push(GetManyResponse::generated_message_descriptor_data());
             messages.push(BatchResponse::generated_message_descriptor_data());
             messages.push(TransactionResponse::generated_message_descriptor_data());
+            messages.push(SyncModelResponse::generated_message_descriptor_data());
+            messages.push(DeleteTableResponse::generated_message_descriptor_data());
             messages.push(ClientError::generated_message_descriptor_data());
             messages.push(ServerError::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(0);

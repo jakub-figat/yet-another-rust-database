@@ -7,8 +7,9 @@ use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use protobuf::Message;
 use protos::{
-    AbortTransaction, BatchRequest, BeginTransaction, CommitTransaction, GetManyRequest,
-    ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
+    AbortTransaction, BatchRequest, BeginTransaction, CommitTransaction, DeleteTableRequest,
+    GetManyRequest, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
+    SyncModelRequest,
 };
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
@@ -88,9 +89,13 @@ impl Connection {
         ))
     }
 
-    // pub async fn sync_table<T: Model>(&self) -> Result<(), ConnectionError> {
-    //
-    // }
+    pub async fn sync_model<T: Model>(&self) -> Result<(), ConnectionError> {
+        self.inner.lock().await.sync_model::<T>().await
+    }
+
+    pub async fn drop_table(&self, table_name: String) -> Result<(), ConnectionError> {
+        self.inner.lock().await.drop_table(table_name).await
+    }
 }
 
 pub(crate) struct ConnectionInner {
@@ -392,6 +397,48 @@ impl ConnectionInner {
         let coordinator_stream = self.streams[&coordinator_partition].clone();
         let proto_response = send_request(coordinator_stream.clone(), proto_request).await?;
         handle_transaction_response(proto_response)
+    }
+
+    pub(crate) async fn sync_model<T: Model>(&self) -> Result<(), ConnectionError> {
+        let mut proto_request = ProtoRequest::new();
+        proto_request.table = T::table_name();
+
+        let mut sync_model_request = SyncModelRequest::new();
+        sync_model_request.schema_string = T::table_schema().to_string();
+        proto_request.data = Some(ProtoRequestData::SyncModel(sync_model_request));
+
+        let proto_response = send_request(self.streams[&0].clone(), proto_request).await?;
+
+        match proto_response.data.unwrap() {
+            ProtoResponseData::Model(_) => Ok(()),
+            ProtoResponseData::ClientError(client_error) => {
+                Err(ConnectionError::Client(client_error.detail))
+            }
+            ProtoResponseData::ServerError(server_error) => {
+                Err(ConnectionError::Server(server_error.detail))
+            }
+            _ => panic!("Invalid proto response type"),
+        }
+    }
+
+    pub(crate) async fn drop_table(&self, table_name: String) -> Result<(), ConnectionError> {
+        let mut proto_request = ProtoRequest::new();
+        proto_request.table = table_name;
+
+        proto_request.data = Some(ProtoRequestData::DeleteTable(DeleteTableRequest::new()));
+
+        let proto_response = send_request(self.streams[&0].clone(), proto_request).await?;
+
+        match proto_response.data.unwrap() {
+            ProtoResponseData::DeleteTable(_) => Ok(()),
+            ProtoResponseData::ClientError(client_error) => {
+                Err(ConnectionError::Client(client_error.detail))
+            }
+            ProtoResponseData::ServerError(server_error) => {
+                Err(ConnectionError::Server(server_error.detail))
+            }
+            _ => panic!("Invalid proto response type"),
+        }
     }
 }
 

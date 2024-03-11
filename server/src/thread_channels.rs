@@ -70,11 +70,7 @@ impl Response {
                     let get_response = row_to_get_response(row);
                     ProtoResponseData::Get(get_response)
                 }),
-                OperationResponse::Insert => {
-                    let mut insert_response = InsertResponse::new();
-                    insert_response.okay = true;
-                    Some(ProtoResponseData::Insert(insert_response))
-                }
+                OperationResponse::Insert => Some(ProtoResponseData::Insert(InsertResponse::new())),
                 OperationResponse::Delete(result) => {
                     let mut delete_response = DeleteResponse::new();
                     delete_response.okay = result;
@@ -135,7 +131,6 @@ pub async fn send_transaction_begun(
     }
 }
 
-// prepare
 pub async fn send_transaction_prepare(
     transaction_id: u64,
     senders: &mut Vec<OperationSender>,
@@ -160,6 +155,7 @@ pub async fn send_transaction_prepare(
 
     true
 }
+
 pub async fn send_transaction_committed(
     transaction_id: u64,
     senders: &mut Vec<OperationSender>,

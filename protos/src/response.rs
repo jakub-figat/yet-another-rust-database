@@ -915,9 +915,6 @@ impl ::protobuf::reflect::ProtobufValue for GetResponse {
 // @@protoc_insertion_point(message:InsertResponse)
 #[derive(PartialEq,Clone,Default,Debug)]
 pub struct InsertResponse {
-    // message fields
-    // @@protoc_insertion_point(field:InsertResponse.okay)
-    pub okay: bool,
     // special fields
     // @@protoc_insertion_point(special_field:InsertResponse.special_fields)
     pub special_fields: ::protobuf::SpecialFields,
@@ -935,13 +932,8 @@ impl InsertResponse {
     }
 
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(1);
+        let mut fields = ::std::vec::Vec::with_capacity(0);
         let mut oneofs = ::std::vec::Vec::with_capacity(0);
-        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
-            "okay",
-            |m: &InsertResponse| { &m.okay },
-            |m: &mut InsertResponse| { &mut m.okay },
-        ));
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<InsertResponse>(
             "InsertResponse",
             fields,
@@ -960,9 +952,6 @@ impl ::protobuf::Message for InsertResponse {
     fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
         while let Some(tag) = is.read_raw_tag_or_eof()? {
             match tag {
-                8 => {
-                    self.okay = is.read_bool()?;
-                },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
                 },
@@ -975,18 +964,12 @@ impl ::protobuf::Message for InsertResponse {
     #[allow(unused_variables)]
     fn compute_size(&self) -> u64 {
         let mut my_size = 0;
-        if self.okay != false {
-            my_size += 1 + 1;
-        }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
         self.special_fields.cached_size().set(my_size as u32);
         my_size
     }
 
     fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
-        if self.okay != false {
-            os.write_bool(1, self.okay)?;
-        }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
         ::std::result::Result::Ok(())
     }
@@ -1004,13 +987,11 @@ impl ::protobuf::Message for InsertResponse {
     }
 
     fn clear(&mut self) {
-        self.okay = false;
         self.special_fields.clear();
     }
 
     fn default_instance() -> &'static InsertResponse {
         static instance: InsertResponse = InsertResponse {
-            okay: false,
             special_fields: ::protobuf::SpecialFields::new(),
         };
         &instance
@@ -1801,15 +1782,14 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \x03(\x0b2\x18.GetResponse.ValuesEntryR\x06values\x12\x14\n\x05table\x18\
     \x04\x20\x01(\tR\x05table\x1aA\n\x0bValuesEntry\x12\x10\n\x03key\x18\x01\
     \x20\x01(\tR\x03key\x12\x1c\n\x05value\x18\x02\x20\x01(\x0b2\x06.ValueR\
-    \x05value:\x028\x01\"$\n\x0eInsertResponse\x12\x12\n\x04okay\x18\x01\x20\
-    \x01(\x08R\x04okay\"$\n\x0eDeleteResponse\x12\x12\n\x04okay\x18\x01\x20\
-    \x01(\x08R\x04okay\"5\n\x0fGetManyResponse\x12\"\n\x05items\x18\x01\x20\
-    \x03(\x0b2\x0c.GetResponseR\x05items\"#\n\rBatchResponse\x12\x12\n\x04ok\
-    ay\x18\x01\x20\x01(\x08R\x04okay\"P\n\x13TransactionResponse\x12\x12\n\
-    \x04okay\x18\x01\x20\x01(\x08R\x04okay\x12%\n\x0etransaction_id\x18\x02\
-    \x20\x01(\x04R\rtransactionId\"%\n\x0bClientError\x12\x16\n\x06detail\
-    \x18\x01\x20\x01(\tR\x06detail\"%\n\x0bServerError\x12\x16\n\x06detail\
-    \x18\x01\x20\x01(\tR\x06detailb\x06proto3\
+    \x05value:\x028\x01\"\x10\n\x0eInsertResponse\"$\n\x0eDeleteResponse\x12\
+    \x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"5\n\x0fGetManyResponse\x12\
+    \"\n\x05items\x18\x01\x20\x03(\x0b2\x0c.GetResponseR\x05items\"#\n\rBatc\
+    hResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\"P\n\x13Transa\
+    ctionResponse\x12\x12\n\x04okay\x18\x01\x20\x01(\x08R\x04okay\x12%\n\x0e\
+    transaction_id\x18\x02\x20\x01(\x04R\rtransactionId\"%\n\x0bClientError\
+    \x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detail\"%\n\x0bServerError\
+    \x12\x16\n\x06detail\x18\x01\x20\x01(\tR\x06detailb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file

@@ -114,6 +114,7 @@ dependencies = [
  "macros",
  "protobuf",
  "protos",
+ "rand",
  "tokio",
  "tracing",
  "tracing-subscriber",

@@ -8,6 +8,7 @@ common = { path = "../common" }
 protos = { path = "../protos" }
 macros = { path = "../macros" }
 tokio = { version = "1.36.0", features = ["net", "io-util", "sync", "rt", "macros", "time"] }
+rand = "0.8.5"
 protobuf = "3.3.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

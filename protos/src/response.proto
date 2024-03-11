@@ -24,9 +24,7 @@ message GetResponse {
     string table = 4;
 }
 
-message InsertResponse {
-    bool okay = 1;
-}
+message InsertResponse {}
 
 message DeleteResponse {
     bool okay = 1;

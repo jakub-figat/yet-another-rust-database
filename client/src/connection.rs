@@ -2,12 +2,15 @@ use crate::batch::{get_batch_item_hash_key, Batch, GetMany};
 use crate::connection_util::{create_delete_request, create_get_request};
 use crate::model::Model;
 use crate::pool::ConnectionPool;
+use crate::transaction::Transaction;
 use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use protobuf::Message;
 use protos::{
-    BatchRequest, GetManyRequest, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
+    AbortTransaction, BatchRequest, BeginTransaction, CommitTransaction, GetManyRequest,
+    ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
 };
+use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::net::SocketAddrV4;
 use std::sync::{Arc, Weak};
@@ -41,11 +44,15 @@ impl Connection {
         hash_key: String,
         sort_key: Value,
     ) -> Result<Option<T>, ConnectionError> {
-        self.inner.as_mut().unwrap().get(hash_key, sort_key).await
+        self.inner
+            .as_mut()
+            .unwrap()
+            .get(hash_key, sort_key, None)
+            .await
     }
 
     pub async fn insert<T: Model>(&mut self, instance: T) -> Result<(), ConnectionError> {
-        self.inner.as_mut().unwrap().insert(instance).await
+        self.inner.as_mut().unwrap().insert(instance, None).await
     }
 
     pub async fn delete(
@@ -53,11 +60,11 @@ impl Connection {
         hash_key: String,
         sort_key: Value,
         table_name: &str,
-    ) -> Result<Option<()>, ConnectionError> {
+    ) -> Result<bool, ConnectionError> {
         self.inner
             .as_mut()
             .unwrap()
-            .delete(hash_key, sort_key, table_name)
+            .delete(hash_key, sort_key, table_name, None)
             .await
     }
 
@@ -65,11 +72,15 @@ impl Connection {
         &mut self,
         get_many: GetMany<T>,
     ) -> Result<Vec<T>, ConnectionError> {
-        self.inner.as_mut().unwrap().get_many(get_many).await
+        self.inner.as_mut().unwrap().get_many(get_many, None).await
     }
 
     pub async fn batch<T: Model>(&mut self, batch: Batch<T>) -> Result<bool, ConnectionError> {
-        self.inner.as_mut().unwrap().batch(batch).await
+        self.inner.as_mut().unwrap().batch(batch, None).await
+    }
+
+    pub async fn begin_transaction(&mut self) -> Result<Transaction, ConnectionError> {
+        self.inner.as_mut().unwrap().begin_transaction().await
     }
 }
 
@@ -114,10 +125,11 @@ impl ConnectionInner {
         Ok(ConnectionInner { streams })
     }
 
-    async fn get<T: Model>(
+    pub async fn get<T: Model>(
         &mut self,
         hash_key: String,
         sort_key: Value,
+        transaction_id: Option<u64>,
     ) -> Result<Option<T>, ConnectionError> {
         let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
         let get_request = create_get_request(hash_key, sort_key);
@@ -125,6 +137,7 @@ impl ConnectionInner {
         let mut request = ProtoRequest::new();
         request.table = T::table_name();
         request.data = Some(ProtoRequestData::Get(get_request));
+        request.transaction_id = transaction_id;
 
         let proto_response = send_request(self.streams[&partition].clone(), request).await?;
 
@@ -145,22 +158,24 @@ impl ConnectionInner {
         }
     }
 
-    async fn insert<T: Model>(&mut self, instance: T) -> Result<(), ConnectionError> {
+    pub async fn insert<T: Model>(
+        &mut self,
+        instance: T,
+        transaction_id: Option<u64>,
+    ) -> Result<(), ConnectionError> {
         let partition = get_hash_key_target_partition(&instance.hash_key(), self.streams.len());
         let insert_request = instance.to_insert_request();
 
         let mut request = ProtoRequest::new();
         request.table = T::table_name();
+        request.transaction_id = transaction_id;
 
         request.data = Some(ProtoRequestData::Insert(insert_request));
 
         let proto_response = send_request(self.streams[&partition].clone(), request).await?;
 
         match proto_response.data.unwrap() {
-            ProtoResponseData::Insert(insert_response) => match insert_response.okay {
-                true => Ok(()),
-                false => Err(ConnectionError::Server(String::from("Insert failed"))),
-            },
+            ProtoResponseData::Insert(_) => Ok(()),
             ProtoResponseData::ClientError(client_error) => {
                 Err(ConnectionError::Client(client_error.detail))
             }
@@ -171,43 +186,40 @@ impl ConnectionInner {
         }
     }
 
-    async fn delete(
+    pub async fn delete(
         &mut self,
         hash_key: String,
         sort_key: Value,
         table_name: &str,
-    ) -> Result<Option<()>, ConnectionError> {
+        transaction_id: Option<u64>,
+    ) -> Result<bool, ConnectionError> {
         let partition = get_hash_key_target_partition(&hash_key, self.streams.len());
 
         let mut request = ProtoRequest::new();
         request.table = table_name.to_string();
+        request.transaction_id = transaction_id;
 
         let delete_request = create_delete_request(hash_key, sort_key);
         request.data = Some(ProtoRequestData::Delete(delete_request));
 
         let proto_response = send_request(self.streams[&partition].clone(), request).await?;
 
-        match proto_response.data {
-            Some(proto_response_data) => match proto_response_data {
-                ProtoResponseData::Delete(delete_response) => match delete_response.okay {
-                    true => Ok(Some(())),
-                    false => Err(ConnectionError::Client(String::from("Insert failed"))),
-                },
-                ProtoResponseData::ClientError(client_error) => {
-                    Err(ConnectionError::Client(client_error.detail))
-                }
-                ProtoResponseData::ServerError(server_error) => {
-                    Err(ConnectionError::Server(server_error.detail))
-                }
-                _ => panic!("Invalid proto response type"),
-            },
-            None => Ok(None),
+        match proto_response.data.unwrap() {
+            ProtoResponseData::Delete(delete_response) => Ok(delete_response.okay),
+            ProtoResponseData::ClientError(client_error) => {
+                Err(ConnectionError::Client(client_error.detail))
+            }
+            ProtoResponseData::ServerError(server_error) => {
+                Err(ConnectionError::Server(server_error.detail))
+            }
+            _ => panic!("Invalid proto response type"),
         }
     }
 
-    async fn get_many<T: Model>(
+    pub async fn get_many<T: Model>(
         &mut self,
         get_many: GetMany<T>,
+        transaction_id: Option<u64>,
     ) -> Result<Vec<T>, ConnectionError> {
         if get_many.items.is_empty() {
             return Ok(vec![]);
@@ -232,6 +244,7 @@ impl ConnectionInner {
 
             let mut proto_request = ProtoRequest::new();
             proto_request.table = T::table_name();
+            proto_request.transaction_id = transaction_id;
 
             proto_request.data = Some(ProtoRequestData::GetMany(get_many_request));
 
@@ -262,7 +275,11 @@ impl ConnectionInner {
         Ok(responses)
     }
 
-    async fn batch<T: Model>(&mut self, batch: Batch<T>) -> Result<bool, ConnectionError> {
+    pub async fn batch<T: Model>(
+        &mut self,
+        batch: Batch<T>,
+        transaction_id: Option<u64>,
+    ) -> Result<bool, ConnectionError> {
         if batch.items.is_empty() {
             return Ok(true);
         }
@@ -286,6 +303,7 @@ impl ConnectionInner {
 
             let mut proto_request = ProtoRequest::new();
             proto_request.table = T::table_name();
+            proto_request.transaction_id = transaction_id;
 
             proto_request.data = Some(ProtoRequestData::Batch(batch_request));
 
@@ -314,6 +332,76 @@ impl ConnectionInner {
         }
 
         Ok(true)
+    }
+
+    async fn begin_transaction(&mut self) -> Result<Transaction, ConnectionError> {
+        let mut rng = thread_rng();
+        let coordinator_partition = rng.gen_range(0..self.streams.len());
+
+        let mut proto_request = ProtoRequest::new();
+        proto_request.data = Some(ProtoRequestData::BeginTransaction(BeginTransaction::new()));
+
+        let coordinator_stream = self.streams[&coordinator_partition].clone();
+        let proto_response = send_request(coordinator_stream.clone(), proto_request).await?;
+        match proto_response.data.unwrap() {
+            ProtoResponseData::Transaction(transaction) => Ok(Transaction::new(
+                transaction.transaction_id,
+                coordinator_partition,
+            )),
+            ProtoResponseData::ClientError(client_error) => {
+                Err(ConnectionError::Client(client_error.detail))
+            }
+            ProtoResponseData::ServerError(server_error) => {
+                Err(ConnectionError::Server(server_error.detail))
+            }
+            _ => panic!("Invalid proto response type"),
+        }
+    }
+
+    pub async fn commit_transaction(
+        &mut self,
+        transaction_id: u64,
+        coordinator_partition: usize,
+    ) -> Result<(), ConnectionError> {
+        let mut proto_request = ProtoRequest::new();
+        proto_request.transaction_id = Some(transaction_id);
+        proto_request.data = Some(ProtoRequestData::CommitTransaction(CommitTransaction::new()));
+
+        let coordinator_stream = self.streams[&coordinator_partition].clone();
+        let proto_response = send_request(coordinator_stream.clone(), proto_request).await?;
+        match proto_response.data.unwrap() {
+            ProtoResponseData::Transaction(_) => Ok(()),
+            ProtoResponseData::ClientError(client_error) => {
+                Err(ConnectionError::Client(client_error.detail))
+            }
+            ProtoResponseData::ServerError(server_error) => {
+                Err(ConnectionError::Server(server_error.detail))
+            }
+            _ => panic!("Invalid proto response type"),
+        }
+    }
+
+    pub async fn abort_transaction(
+        &mut self,
+        transaction_id: u64,
+        coordinator_partition: usize,
+    ) -> Result<(), ConnectionError> {
+        let mut proto_request = ProtoRequest::new();
+        proto_request.transaction_id = Some(transaction_id);
+        proto_request.data = Some(ProtoRequestData::AbortTransaction(AbortTransaction::new()));
+
+        let coordinator_stream = self.streams[&coordinator_partition].clone();
+        let proto_response = send_request(coordinator_stream.clone(), proto_request).await?;
+        match proto_response.data.unwrap() {
+            ProtoResponseData::Transaction(_) => Ok(()),
+            ProtoResponseData::ClientError(client_error) => {
+                Err(ConnectionError::Client(client_error.detail))
+            }
+            ProtoResponseData::ServerError(server_error) => {
+                Err(ConnectionError::Server(server_error.detail))
+            }
+            _ => panic!("Invalid proto response type"),
+        }
     }
 }
 

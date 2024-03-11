@@ -115,6 +115,7 @@ dependencies = [
  "protobuf",
  "protos",
  "rand",
+ "storage",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -378,6 +379,7 @@ dependencies = [
  "proc-macro2",
  "protos",
  "quote",
+ "storage",
  "syn",
 ]
 

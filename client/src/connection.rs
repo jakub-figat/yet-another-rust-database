@@ -78,7 +78,7 @@ impl Connection {
         self.inner.lock().await.batch(batch, None).await
     }
 
-    pub async fn begin_transaction(self) -> Result<Transaction, ConnectionError> {
+    pub async fn begin_transaction(&self) -> Result<Transaction, ConnectionError> {
         let (transaction_id, coordinator_partition) =
             self.inner.lock().await.begin_transaction().await?;
         Ok(Transaction::new(
@@ -87,6 +87,10 @@ impl Connection {
             self.inner.clone(),
         ))
     }
+
+    // pub async fn sync_table<T: Model>(&self) -> Result<(), ConnectionError> {
+    //
+    // }
 }
 
 pub(crate) struct ConnectionInner {

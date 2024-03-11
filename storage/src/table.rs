@@ -28,6 +28,13 @@ pub struct TableSchema {
 }
 
 impl TableSchema {
+    pub fn new(table_name: String) -> TableSchema {
+        TableSchema {
+            name: table_name,
+            columns: BTreeMap::new(),
+        }
+    }
+
     pub fn from_string(schema_string: &str) -> TableSchema {
         let (table_name, columns_string) = schema_string.split_once('>').unwrap();
 
@@ -74,6 +81,15 @@ impl Display for TableSchema {
 pub struct Column {
     pub column_type: ColumnType,
     pub nullable: bool,
+}
+
+impl Column {
+    pub fn new(column_type: ColumnType, nullable: bool) -> Column {
+        Column {
+            column_type,
+            nullable,
+        }
+    }
 }
 
 impl Display for Column {

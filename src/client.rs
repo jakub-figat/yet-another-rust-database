@@ -12,6 +12,7 @@ use std::net::SocketAddrV4;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use storage::table::TableSchema;
 use tokio::task::JoinSet;
 
 #[tokio::main]
@@ -37,14 +38,14 @@ async fn main() {
 }
 
 async fn worker(connection_pool: Arc<ConnectionPool>, num: usize, objects_per_future: usize) {
-    let mut connection = connection_pool.acquire().await.unwrap();
+    let connection = connection_pool.acquire().await.unwrap();
 
     let users: Vec<_> = (num * objects_per_future..(num + 1) * objects_per_future)
         .map(|key| User {
             hash_key: key.to_string(),
             sort_key: key.to_string(),
             name: "a".to_string(),
-            age: 50,
+            age: None,
         })
         .collect();
 
@@ -69,5 +70,5 @@ pub struct User {
     pub hash_key: String,
     pub sort_key: String,
     pub name: String,
-    pub age: u32,
+    pub age: Option<i32>,
 }

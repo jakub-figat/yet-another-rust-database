@@ -1,8 +1,10 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
+use std::collections::BTreeMap;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
 
+use storage::table::{Column, ColumnType, TableSchema};
 use syn::{
     parse_macro_input, Data, DeriveInput, Field, Fields, GenericArgument, PathArguments, Type,
 };
@@ -27,6 +29,7 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let from_get_impl = proc_from_get_response(&sort_key, &fields);
     let insert_impl = proc_to_insert_request(&sort_key, &fields);
     let delete_impl = proc_to_delete_request(&sort_key);
+    let table_schema_impl = proc_table_schema(&fields, table_name.clone());
 
     let expanded = quote! {
         impl Model for #name {
@@ -48,6 +51,10 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
             fn table_name() -> String {
                 String::from(#table_name)
+            }
+
+            fn table_schema() -> TableSchema {
+                #table_schema_impl
             }
         }
     };
@@ -155,6 +162,25 @@ fn proc_to_delete_request(sort_key: &Field) -> TokenStream {
         #sort_key_operation
 
         delete_request
+    }
+}
+
+fn proc_table_schema(fields: &Vec<Field>, table_name: String) -> TokenStream {
+    let columns: BTreeMap<_, _> = fields
+        .into_iter()
+        .map(|field| {
+            let field_name = field.ident.as_ref().unwrap().to_string();
+            let (column_type, nullable) = field_to_column_type(field);
+            (field_name, Column::new(column_type, nullable))
+        })
+        .collect();
+
+    let mut table_schema = TableSchema::new(table_name);
+    table_schema.columns = columns;
+
+    let table_schema_string = table_schema.to_string();
+    quote! {
+        TableSchema::from_string(#table_schema_string)
     }
 }
 
@@ -388,39 +414,72 @@ fn parse_to_value_quote_for_option_inner(field_type: &str) -> TokenStream {
         }
         "i32" => {
             quote! {
-                Int32(inner),
+                Int32(inner.clone()),
             }
         }
         "i64" => {
             quote! {
-                Int64(inner),
+                Int64(inner.clone()),
             }
         }
         "u32" => {
             quote! {
-                Unsigned32(inner),
+                Unsigned32(inner.clone()),
             }
         }
         "u64" => {
             quote! {
-                Unsigned64(inner),
+                Unsigned64(inner.clone()),
             }
         }
         "f32" => {
             quote! {
-                Float32(inner),
+                Float32(inner.clone()),
             }
         }
         "f64" => {
             quote! {
-                Float64(inner),
+                Float64(inner.clone()),
             }
         }
         "bool" => {
             quote! {
-                Boolean(inner),
+                Boolean(inner.clone()),
             }
         }
+        other_type => panic!("Unsupported '{}' field type", other_type),
+    }
+}
+
+fn field_to_column_type(field: &Field) -> (ColumnType, bool) {
+    let field_type = get_field_type(field);
+    match field_type.as_str() {
+        "String" => (ColumnType::Varchar(1000), false),
+        "i32" => (ColumnType::Int32, false),
+        "i64" => (ColumnType::Int64, false),
+        "u32" => (ColumnType::Unsigned32, false),
+        "u64" => (ColumnType::Unsigned64, false),
+        "f32" => (ColumnType::Float32, false),
+        "f64" => (ColumnType::Float64, false),
+        "Boolean" => (ColumnType::Boolean, false),
+        "Option" => {
+            let generic_type = get_option_generic_type(field);
+            (option_generic_type_to_column_type(&generic_type), true)
+        }
+        other_type => panic!("Unsupported '{}' field type", other_type),
+    }
+}
+
+fn option_generic_type_to_column_type(field_type: &str) -> ColumnType {
+    match field_type {
+        "String" => ColumnType::Varchar(1000),
+        "i32" => ColumnType::Int32,
+        "i64" => ColumnType::Int64,
+        "u32" => ColumnType::Unsigned32,
+        "u64" => ColumnType::Unsigned64,
+        "f32" => ColumnType::Float32,
+        "f64" => ColumnType::Float64,
+        "Boolean" => ColumnType::Boolean,
         other_type => panic!("Unsupported '{}' field type", other_type),
     }
 }

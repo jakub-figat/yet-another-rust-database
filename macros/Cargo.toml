@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 protos = { path = "../protos" }
 common = { path = "../common" }
+storage = { path = "../storage" }
 syn = "2.0.52"
 proc-macro2 = "1.0.78"
 quote = "1.0.35"

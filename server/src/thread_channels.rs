@@ -14,6 +14,8 @@ use storage::Row;
 pub enum ThreadMessage {
     Operations(ThreadOperations),
     TransactionBegun(u64),
+    TransactionPrepare(u64, oneshot::Sender<bool>),
+    TransactionCommit(u64),
     TransactionAborted(u64),
 }
 
@@ -196,7 +198,34 @@ pub async fn send_transaction_begun(transaction_id: u64, senders: &mut Vec<Opera
 }
 
 // prepare
-// commit
+pub async fn send_transaction_prepare(
+    transaction_id: u64,
+    senders: &mut Vec<OperationSender>,
+) -> bool {
+    for sender in senders {
+        let (prepare_sender, receiver) = oneshot::channel();
+        sender
+            .send(ThreadMessage::TransactionPrepare(
+                transaction_id,
+                prepare_sender,
+            ))
+            .await
+            .unwrap();
+        if !receiver.await.unwrap() {
+            return false;
+        }
+    }
+
+    true
+}
+pub async fn send_transaction_committed(transaction_id: u64, senders: &mut Vec<OperationSender>) {
+    for sender in senders {
+        sender
+            .send(ThreadMessage::TransactionCommit(transaction_id))
+            .await
+            .unwrap();
+    }
+}
 
 pub async fn send_transaction_aborted(transaction_id: u64, senders: &mut Vec<OperationSender>) {
     for sender in senders.iter_mut() {

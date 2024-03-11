@@ -1,5 +1,5 @@
 use crate::table::Table;
-use crate::{Memtable, Row};
+use crate::Row;
 use futures::lock::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;

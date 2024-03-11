@@ -1,7 +1,7 @@
 use crate::proto_parsing::{parse_command_from_request, parse_request_from_bytes};
 use crate::thread_channels::{
-    send_operations, send_transaction_aborted, send_transaction_begun, Command, OperationSender,
-    Response, ThreadMessage, ThreadOperations,
+    send_operations, send_transaction_aborted, send_transaction_begun, send_transaction_committed,
+    send_transaction_prepare, Command, OperationSender, Response, ThreadMessage, ThreadOperations,
 };
 use crate::transaction_manager::TransactionManager;
 use crate::util::{handle_operation, write_to_tcp};
@@ -196,7 +196,17 @@ async fn handle_tcp_request(
             let transaction_id = transaction_id.ok_or(HandlerError::Client(
                 "Transaction id cannot be null".to_string(),
             ))?;
-            manager.commit(transaction_id, tables.clone()).await?;
+
+            manager.remove_coordinated(transaction_id)?;
+            if !send_transaction_prepare(transaction_id, senders).await {
+                send_transaction_aborted(transaction_id, senders).await;
+                return Err(HandlerError::Server(format!(
+                    "Transaction with id '{}' failed to commit and got aborted",
+                    transaction_id
+                )));
+            }
+
+            send_transaction_committed(transaction_id, senders).await;
 
             Response::Transaction(transaction_id).to_proto_response()
         }
@@ -205,13 +215,7 @@ async fn handle_tcp_request(
             let transaction_id = transaction_id.ok_or(HandlerError::Client(
                 "Transaction id cannot be null".to_string(),
             ))?;
-            if !manager.abort(transaction_id) {
-                return Err(HandlerError::Client(format!(
-                    "Cannot abort non existing transaction with id '{}'",
-                    transaction_id
-                )));
-            }
-
+            manager.remove_coordinated(transaction_id)?;
             send_transaction_aborted(transaction_id, senders).await;
 
             Response::Transaction(transaction_id).to_proto_response()

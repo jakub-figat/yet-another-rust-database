@@ -1,7 +1,7 @@
 use crate::handlers::handle_tcp_stream;
 use crate::thread_channels::{OperationReceiver, OperationSender, ThreadMessage};
 use crate::transaction_manager::TransactionManager;
-use crate::util::{get_transaction_by_id, handle_operation};
+use crate::util::handle_operation;
 use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::StreamExt;
@@ -102,6 +102,16 @@ async fn thread_main(
                     ThreadMessage::TransactionBegun(transaction_id) => {
                         let mut manager = transaction_manager.lock().await;
                         manager.add(transaction_id);
+                    }
+                    ThreadMessage::TransactionPrepare(transaction_id, response_sender) => {
+                        let mut manager = transaction_manager.lock().await;
+                        let transaction = manager.transactions.get_mut(&transaction_id).unwrap();
+                        response_sender.send(transaction.can_commit(tables.clone()).await).unwrap();
+                    }
+                    ThreadMessage::TransactionCommit(transaction_id) => {
+                        let mut manager = transaction_manager.lock().await;
+                        let transaction = manager.transactions.get_mut(&transaction_id).unwrap();
+                        transaction.commit(tables.clone()).await;
                     }
                     ThreadMessage::TransactionAborted(transaction_id) => {
                         let mut manager = transaction_manager.lock().await;

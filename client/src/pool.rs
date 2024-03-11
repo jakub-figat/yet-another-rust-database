@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::net::SocketAddrV4;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 use tokio::time::sleep;
@@ -38,8 +39,10 @@ impl ConnectionPool {
         {
             let mut pool_connections = pool.connections.lock().unwrap();
             for connection in connections {
-                pool_connections
-                    .push_back(Connection::new_for_pool(connection, Arc::downgrade(&pool)));
+                pool_connections.push_back(Connection::new_for_pool(
+                    Arc::new(TokioMutex::new(connection)),
+                    Arc::downgrade(&pool),
+                ));
             }
         }
 
@@ -61,7 +64,7 @@ impl ConnectionPool {
         Ok(connection)
     }
 
-    pub fn put_back(self: &Arc<Self>, connection_inner: ConnectionInner) {
+    pub(crate) fn put_back(self: &Arc<Self>, connection_inner: Arc<TokioMutex<ConnectionInner>>) {
         let mut connections = self.connections.lock().unwrap();
         connections.push_back(Connection::new_for_pool(
             connection_inner,

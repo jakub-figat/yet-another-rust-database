@@ -20,71 +20,76 @@ use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 
 pub struct Connection {
-    pub inner: Option<ConnectionInner>,
-    pub pool: Option<Weak<ConnectionPool>>,
+    pub(crate) inner: Arc<Mutex<ConnectionInner>>,
+    pub(crate) pool: Option<Weak<ConnectionPool>>,
 }
 
 impl Connection {
     pub async fn new(addr: SocketAddrV4) -> Result<Connection, ConnectionError> {
         Ok(Connection {
-            inner: Some(ConnectionInner::new(addr).await?),
+            inner: Arc::new(Mutex::new(ConnectionInner::new(addr).await?)),
             pool: None,
         })
     }
 
-    pub fn new_for_pool(inner: ConnectionInner, pool: Weak<ConnectionPool>) -> Connection {
+    pub(crate) fn new_for_pool(
+        inner: Arc<Mutex<ConnectionInner>>,
+        pool: Weak<ConnectionPool>,
+    ) -> Connection {
         Connection {
-            inner: Some(inner),
+            inner,
             pool: Some(pool),
         }
     }
 
     pub async fn get<T: Model>(
-        &mut self,
+        &self,
         hash_key: String,
         sort_key: Value,
     ) -> Result<Option<T>, ConnectionError> {
-        self.inner
-            .as_mut()
-            .unwrap()
-            .get(hash_key, sort_key, None)
-            .await
+        self.inner.lock().await.get(hash_key, sort_key, None).await
     }
 
-    pub async fn insert<T: Model>(&mut self, instance: T) -> Result<(), ConnectionError> {
-        self.inner.as_mut().unwrap().insert(instance, None).await
+    pub async fn insert<T: Model>(&self, instance: T) -> Result<(), ConnectionError> {
+        self.inner.lock().await.insert(instance, None).await
     }
 
     pub async fn delete(
-        &mut self,
+        &self,
         hash_key: String,
         sort_key: Value,
         table_name: &str,
     ) -> Result<bool, ConnectionError> {
         self.inner
-            .as_mut()
-            .unwrap()
+            .lock()
+            .await
             .delete(hash_key, sort_key, table_name, None)
             .await
     }
 
     pub async fn get_many<T: Model>(
-        &mut self,
+        &self,
         get_many: GetMany<T>,
     ) -> Result<Vec<T>, ConnectionError> {
-        self.inner.as_mut().unwrap().get_many(get_many, None).await
+        self.inner.lock().await.get_many(get_many, None).await
     }
 
-    pub async fn batch<T: Model>(&mut self, batch: Batch<T>) -> Result<bool, ConnectionError> {
-        self.inner.as_mut().unwrap().batch(batch, None).await
+    pub async fn batch<T: Model>(&self, batch: Batch<T>) -> Result<bool, ConnectionError> {
+        self.inner.lock().await.batch(batch, None).await
     }
 
-    pub async fn begin_transaction(&mut self) -> Result<Transaction, ConnectionError> {
-        self.inner.as_mut().unwrap().begin_transaction().await
+    pub async fn begin_transaction(self) -> Result<Transaction, ConnectionError> {
+        let (transaction_id, coordinator_partition) =
+            self.inner.lock().await.begin_transaction().await?;
+        Ok(Transaction::new(
+            transaction_id,
+            coordinator_partition,
+            self.inner.clone(),
+        ))
     }
 }
 
-pub struct ConnectionInner {
+pub(crate) struct ConnectionInner {
     streams: HashMap<usize, Arc<Mutex<TcpStream>>>,
 }
 
@@ -95,7 +100,7 @@ pub enum ConnectionError {
 }
 
 impl ConnectionInner {
-    pub async fn new(address: SocketAddrV4) -> Result<ConnectionInner, ConnectionError> {
+    pub(crate) async fn new(address: SocketAddrV4) -> Result<ConnectionInner, ConnectionError> {
         let mut stream = TcpStream::connect(address).await.map_err(|e| {
             ConnectionError::Client(format!("Failed to connect to server: {}", e.to_string()))
         })?;
@@ -125,8 +130,8 @@ impl ConnectionInner {
         Ok(ConnectionInner { streams })
     }
 
-    pub async fn get<T: Model>(
-        &mut self,
+    pub(crate) async fn get<T: Model>(
+        &self,
         hash_key: String,
         sort_key: Value,
         transaction_id: Option<u64>,
@@ -158,8 +163,8 @@ impl ConnectionInner {
         }
     }
 
-    pub async fn insert<T: Model>(
-        &mut self,
+    pub(crate) async fn insert<T: Model>(
+        &self,
         instance: T,
         transaction_id: Option<u64>,
     ) -> Result<(), ConnectionError> {
@@ -186,8 +191,8 @@ impl ConnectionInner {
         }
     }
 
-    pub async fn delete(
-        &mut self,
+    pub(crate) async fn delete(
+        &self,
         hash_key: String,
         sort_key: Value,
         table_name: &str,
@@ -216,8 +221,8 @@ impl ConnectionInner {
         }
     }
 
-    pub async fn get_many<T: Model>(
-        &mut self,
+    pub(crate) async fn get_many<T: Model>(
+        &self,
         get_many: GetMany<T>,
         transaction_id: Option<u64>,
     ) -> Result<Vec<T>, ConnectionError> {
@@ -275,8 +280,8 @@ impl ConnectionInner {
         Ok(responses)
     }
 
-    pub async fn batch<T: Model>(
-        &mut self,
+    pub(crate) async fn batch<T: Model>(
+        &self,
         batch: Batch<T>,
         transaction_id: Option<u64>,
     ) -> Result<bool, ConnectionError> {
@@ -334,7 +339,7 @@ impl ConnectionInner {
         Ok(true)
     }
 
-    async fn begin_transaction(&mut self) -> Result<Transaction, ConnectionError> {
+    async fn begin_transaction(&self) -> Result<(u64, usize), ConnectionError> {
         let mut rng = thread_rng();
         let coordinator_partition = rng.gen_range(0..self.streams.len());
 
@@ -344,10 +349,9 @@ impl ConnectionInner {
         let coordinator_stream = self.streams[&coordinator_partition].clone();
         let proto_response = send_request(coordinator_stream.clone(), proto_request).await?;
         match proto_response.data.unwrap() {
-            ProtoResponseData::Transaction(transaction) => Ok(Transaction::new(
-                transaction.transaction_id,
-                coordinator_partition,
-            )),
+            ProtoResponseData::Transaction(transaction) => {
+                Ok((transaction.transaction_id, coordinator_partition))
+            }
             ProtoResponseData::ClientError(client_error) => {
                 Err(ConnectionError::Client(client_error.detail))
             }
@@ -358,8 +362,8 @@ impl ConnectionInner {
         }
     }
 
-    pub async fn commit_transaction(
-        &mut self,
+    pub(crate) async fn commit_transaction(
+        &self,
         transaction_id: u64,
         coordinator_partition: usize,
     ) -> Result<(), ConnectionError> {
@@ -369,20 +373,11 @@ impl ConnectionInner {
 
         let coordinator_stream = self.streams[&coordinator_partition].clone();
         let proto_response = send_request(coordinator_stream.clone(), proto_request).await?;
-        match proto_response.data.unwrap() {
-            ProtoResponseData::Transaction(_) => Ok(()),
-            ProtoResponseData::ClientError(client_error) => {
-                Err(ConnectionError::Client(client_error.detail))
-            }
-            ProtoResponseData::ServerError(server_error) => {
-                Err(ConnectionError::Server(server_error.detail))
-            }
-            _ => panic!("Invalid proto response type"),
-        }
+        handle_transaction_response(proto_response)
     }
 
-    pub async fn abort_transaction(
-        &mut self,
+    pub(crate) async fn abort_transaction(
+        &self,
         transaction_id: u64,
         coordinator_partition: usize,
     ) -> Result<(), ConnectionError> {
@@ -392,16 +387,7 @@ impl ConnectionInner {
 
         let coordinator_stream = self.streams[&coordinator_partition].clone();
         let proto_response = send_request(coordinator_stream.clone(), proto_request).await?;
-        match proto_response.data.unwrap() {
-            ProtoResponseData::Transaction(_) => Ok(()),
-            ProtoResponseData::ClientError(client_error) => {
-                Err(ConnectionError::Client(client_error.detail))
-            }
-            ProtoResponseData::ServerError(server_error) => {
-                Err(ConnectionError::Server(server_error.detail))
-            }
-            _ => panic!("Invalid proto response type"),
-        }
+        handle_transaction_response(proto_response)
     }
 }
 
@@ -436,11 +422,24 @@ async fn send_request(
     ProtoResponse::parse_from_bytes(&buffer).map_err(|e| ConnectionError::Client(e.to_string()))
 }
 
+fn handle_transaction_response(proto_response: ProtoResponse) -> Result<(), ConnectionError> {
+    match proto_response.data.unwrap() {
+        ProtoResponseData::Transaction(_) => Ok(()),
+        ProtoResponseData::ClientError(client_error) => {
+            Err(ConnectionError::Client(client_error.detail))
+        }
+        ProtoResponseData::ServerError(server_error) => {
+            Err(ConnectionError::Server(server_error.detail))
+        }
+        _ => panic!("Invalid proto response type"),
+    }
+}
+
 impl Drop for Connection {
     fn drop(&mut self) {
         if let Some(pool_ref) = self.pool.take() {
             if let Some(pool) = pool_ref.upgrade() {
-                pool.put_back(self.inner.take().unwrap());
+                pool.put_back(self.inner.clone());
             }
         }
     }

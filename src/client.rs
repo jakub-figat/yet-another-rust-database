@@ -43,7 +43,7 @@ async fn worker(connection_pool: Arc<ConnectionPool>, num: usize, objects_per_fu
         .map(|key| User {
             hash_key: key.to_string(),
             sort_key: key.to_string(),
-            name: None,
+            name: "a".to_string(),
             age: 50,
         })
         .collect();
@@ -68,6 +68,6 @@ async fn worker(connection_pool: Arc<ConnectionPool>, num: usize, objects_per_fu
 pub struct User {
     pub hash_key: String,
     pub sort_key: String,
-    pub name: Option<String>,
+    pub name: String,
     pub age: u32,
 }

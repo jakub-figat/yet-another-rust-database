@@ -16,7 +16,7 @@ impl TransactionManager {
         }
     }
 
-    pub fn begin(&mut self) -> u64 {
+    pub fn add_coordinated(&mut self) -> u64 {
         let mut rng = thread_rng();
         let transaction_id = rng.next_u64();
         self.coordinated_transactions.insert(transaction_id);
@@ -38,7 +38,7 @@ impl TransactionManager {
             .insert(transaction_id, Transaction::new(transaction_id));
     }
 
-    pub fn remove(&mut self, transaction_id: u64) {
-        let _ = self.transactions.remove(&transaction_id);
+    pub fn remove(&mut self, transaction_id: u64) -> Option<Transaction> {
+        self.transactions.remove(&transaction_id)
     }
 }

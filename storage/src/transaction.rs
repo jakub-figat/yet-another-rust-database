@@ -84,7 +84,6 @@ impl Transaction {
                 }
             }
         }
-
         true
     }
 

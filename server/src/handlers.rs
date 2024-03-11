@@ -1,14 +1,12 @@
 use crate::proto_parsing::{parse_command_from_request, parse_request_from_bytes};
+use crate::thread_channels::Operation::{Delete, Get, Insert};
 use crate::thread_channels::{
-    send_operations, send_transaction_aborted, send_transaction_begun, send_transaction_committed,
-    send_transaction_prepare, Command, OperationSender, Response, ThreadMessage, ThreadOperations,
+    send_transaction_aborted, send_transaction_begun, send_transaction_committed,
+    send_transaction_prepare, Command, Operation, OperationResponse, OperationSender, Response,
 };
 use crate::transaction_manager::TransactionManager;
-use crate::util::{handle_operation, write_to_tcp};
 use common::partition::get_hash_key_target_partition;
-use futures::channel::oneshot;
 use futures::lock::Mutex;
-use futures::SinkExt;
 use monoio::io::{AsyncReadRentExt, AsyncWriteRentExt};
 use monoio::net::TcpStream;
 use protobuf::Message;
@@ -18,6 +16,9 @@ use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use storage::table::Table;
+use storage::transaction::Transaction;
+use storage::validation::validate_values_against_schema;
+use storage::Row;
 
 pub async fn handle_tcp_stream(
     mut stream: TcpStream,
@@ -106,89 +107,90 @@ async fn handle_tcp_request(
 
     let proto_response = match command {
         Command::Single(operation, table_name) => {
-            let target_partition =
-                get_hash_key_target_partition(&operation.hash_key(), senders.len());
-            let operation_response = match target_partition == current_partition {
-                true => {
-                    let mut table = tables
-                        .get(&table_name)
-                        .ok_or(HandlerError::Client(format!(
-                            "Table named '{}' not found",
-                            table_name
-                        )))?
-                        .lock()
-                        .await;
+            validate_hash_key_partition(&operation.hash_key(), current_partition, senders.len())?;
+            let mut table = tables
+                .get(&table_name)
+                .ok_or(HandlerError::Client(format!(
+                    "Table named '{}' not found",
+                    table_name
+                )))?
+                .lock()
+                .await;
 
+            let operation_response = handle_operation(
+                operation,
+                &mut table,
+                transaction_id,
+                transaction_manager.clone(),
+            )
+            .await?;
+            Response::Single(operation_response).to_proto_response()
+        }
+        Command::GetMany(operations, table_name) => {
+            let mut table = tables
+                .get(&table_name)
+                .ok_or(HandlerError::Client(format!(
+                    "Table named '{}' not found",
+                    table_name
+                )))?
+                .lock()
+                .await;
+
+            let mut responses = Vec::with_capacity(operations.len());
+            for operation in operations {
+                validate_hash_key_partition(
+                    &operation.hash_key(),
+                    current_partition,
+                    senders.len(),
+                )?;
+                responses.push(
                     handle_operation(
                         operation,
                         &mut table,
                         transaction_id,
                         transaction_manager.clone(),
                     )
-                    .await
-                }
-                false => {
-                    tracing::info!(
-                        "Sending from thread {} to thread {}",
-                        current_partition,
-                        target_partition
-                    );
-                    let (response_sender, response_receiver) = oneshot::channel();
-                    let sender = senders.get_mut(target_partition).unwrap();
-                    sender
-                        .send(ThreadMessage::Operations(ThreadOperations::new(
-                            Vec::from([operation]),
-                            table_name,
-                            transaction_id,
-                            response_sender,
-                        )))
-                        .await
-                        .unwrap();
-                    response_receiver.await.unwrap().pop().unwrap()
-                }
-            }?;
-            Response::Single(operation_response).to_proto_response()
-        }
-        Command::GetMany(operations, table_name) => {
-            if !tables.contains_key(&table_name) {
-                return Err(HandlerError::Client(format!(
-                    "Table named '{}' not found",
-                    table_name
-                )));
+                    .await?,
+                );
             }
-
-            tracing::info!("Sending get requests from thread {}", current_partition);
-            let operation_responses =
-                send_operations(operations, &table_name, transaction_id, senders).await;
-            let mut responses = Vec::with_capacity(operation_responses.len());
-            for operation_response in operation_responses {
-                responses.push(operation_response?);
-            }
-
             Response::GetMany(responses).to_proto_response()
         }
         Command::Batch(operations, table_name) => {
-            if !tables.contains_key(&table_name) {
-                return Err(HandlerError::Client(format!(
+            let mut table = tables
+                .get(&table_name)
+                .ok_or(HandlerError::Client(format!(
                     "Table named '{}' not found",
                     table_name
-                )));
-            }
+                )))?
+                .lock()
+                .await;
 
-            tracing::info!("Sending batches from thread {}", current_partition);
-            let operation_responses =
-                send_operations(operations, &table_name, transaction_id, senders).await;
-
-            let mut responses = Vec::with_capacity(operation_responses.len());
-            for operation_response in operation_responses {
-                responses.push(operation_response?);
+            let mut responses = Vec::with_capacity(operations.len());
+            for operation in operations {
+                validate_hash_key_partition(
+                    &operation.hash_key(),
+                    current_partition,
+                    senders.len(),
+                )?;
+                responses.push(
+                    handle_operation(
+                        operation,
+                        &mut table,
+                        transaction_id,
+                        transaction_manager.clone(),
+                    )
+                    .await?,
+                );
             }
             Response::Batch(responses).to_proto_response()
         }
         Command::BeginTransaction => {
             let mut manager = transaction_manager.lock().await;
-            let transaction_id = manager.begin();
-            send_transaction_begun(transaction_id, senders).await;
+
+            let transaction_id = manager.add_coordinated();
+            manager.add(transaction_id);
+
+            send_transaction_begun(transaction_id, senders, current_partition).await;
             Response::Transaction(transaction_id).to_proto_response()
         }
         Command::CommitTransaction => {
@@ -198,16 +200,20 @@ async fn handle_tcp_request(
             ))?;
 
             manager.remove_coordinated(transaction_id)?;
-            if !send_transaction_prepare(transaction_id, senders).await {
-                send_transaction_aborted(transaction_id, senders).await;
+            let transaction = manager.remove(transaction_id).unwrap();
+
+            if !(send_transaction_prepare(transaction_id, senders, current_partition).await
+                && transaction.can_commit(tables.clone()).await)
+            {
+                send_transaction_aborted(transaction_id, senders, current_partition).await;
+
                 return Err(HandlerError::Server(format!(
                     "Transaction with id '{}' failed to commit and got aborted",
                     transaction_id
                 )));
             }
 
-            send_transaction_committed(transaction_id, senders).await;
-
+            send_transaction_committed(transaction_id, senders, current_partition).await;
             Response::Transaction(transaction_id).to_proto_response()
         }
         Command::AbortTransaction => {
@@ -215,8 +221,11 @@ async fn handle_tcp_request(
             let transaction_id = transaction_id.ok_or(HandlerError::Client(
                 "Transaction id cannot be null".to_string(),
             ))?;
+
             manager.remove_coordinated(transaction_id)?;
-            send_transaction_aborted(transaction_id, senders).await;
+            manager.remove(transaction_id);
+
+            send_transaction_aborted(transaction_id, senders, current_partition).await;
 
             Response::Transaction(transaction_id).to_proto_response()
         }
@@ -226,9 +235,16 @@ async fn handle_tcp_request(
     Ok(proto_response)
 }
 
-fn client_error_from_string(error: &str, partition: usize) -> HandlerError {
-    tracing::warn!("Invalid request on thread {}: {}", partition, error);
-    HandlerError::Client(format!("Invalid request: {}", error))
+fn validate_hash_key_partition(
+    hash_key: &str,
+    current_partition: usize,
+    num_of_partitions: usize,
+) -> Result<(), HandlerError> {
+    if get_hash_key_target_partition(hash_key, num_of_partitions) != current_partition {
+        return Err(HandlerError::Client("Invalid partition".to_string()));
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -236,4 +252,82 @@ pub enum HandlerError {
     Client(String),
     Server(String),
     Disconnected,
+}
+
+fn client_error_from_string(error: &str, partition: usize) -> HandlerError {
+    tracing::warn!("Invalid request on thread {}: {}", partition, error);
+    HandlerError::Client(format!("Invalid request: {}", error))
+}
+
+pub async fn handle_operation(
+    operation: Operation,
+    table: &mut Table,
+    transaction_id: Option<u64>,
+    transaction_manager: Arc<Mutex<TransactionManager>>,
+) -> Result<OperationResponse, HandlerError> {
+    let mut manager = transaction_manager.lock().await;
+    let transaction = get_transaction_by_id(transaction_id, &mut manager)?;
+
+    match operation {
+        Get(hash_key, sort_key) => {
+            let primary_key = format!("{}:{}", hash_key, sort_key);
+            let val = table.memtable.get(&primary_key).cloned();
+
+            if let Some(transaction) = transaction {
+                transaction.get_for_update(val.as_ref(), table.table_schema.name.clone());
+            }
+
+            Ok(OperationResponse::Get(val))
+        }
+        Insert(hash_key, sort_key, values) => {
+            validate_values_against_schema(&values, &table.table_schema)
+                .map_err(|e| HandlerError::Client(e))?;
+
+            let row = Row::new(hash_key, sort_key, values);
+
+            match transaction {
+                Some(transaction) => transaction.insert(row, &table),
+                None => table.memtable.insert(row),
+            }
+
+            Ok(OperationResponse::Insert)
+        }
+        Delete(hash_key, sort_key) => {
+            let primary_key = format!("{}:{}", hash_key, sort_key);
+
+            let val = match transaction {
+                Some(transaction) => transaction.delete(primary_key, &table),
+                None => table.memtable.delete(&primary_key),
+            };
+
+            Ok(OperationResponse::Delete(val))
+        }
+    }
+}
+
+async fn write_to_tcp(stream: &mut TcpStream, bytes: Vec<u8>) {
+    let response_size_prefix = (bytes.len() as u32).to_be_bytes().to_vec();
+    if let (Err(error), _) = stream.write_all(response_size_prefix).await {
+        tracing::error!("Couldn't write response to tcp, {}", error);
+    }
+
+    if let (Err(error), _) = stream.write_all(bytes).await {
+        tracing::error!("Couldn't write response to tcp, {}", error);
+    }
+}
+
+fn get_transaction_by_id(
+    transaction_id: Option<u64>,
+    manager: &mut TransactionManager,
+) -> Result<Option<&mut Transaction>, HandlerError> {
+    match transaction_id {
+        Some(id) => match manager.transactions.get_mut(&id) {
+            Some(transaction) => Ok(Some(transaction)),
+            None => Err(HandlerError::Client(format!(
+                "Transaction with id '{}' does not exist",
+                id
+            ))),
+        },
+        None => Ok(None),
+    }
 }

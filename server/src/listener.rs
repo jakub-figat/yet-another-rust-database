@@ -1,7 +1,6 @@
 use crate::handlers::handle_tcp_stream;
 use crate::thread_channels::{OperationReceiver, OperationSender, ThreadMessage};
 use crate::transaction_manager::TransactionManager;
-use crate::util::handle_operation;
 use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::StreamExt;
@@ -77,40 +76,29 @@ async fn thread_main(
         monoio::select! {
             stream = tcp_listener.accept() => {
                 monoio::spawn(handle_tcp_stream(
-                    stream.unwrap().0, partition, num_of_threads, senders.clone(), tables.clone(), transaction_manager.clone())
+                    stream.unwrap().0,
+                    partition,
+                    num_of_threads,
+                    senders.clone(),
+                    tables.clone(),
+                    transaction_manager.clone()
+                )
                 );
             }
             Some(thread_message) = receiver.next() => {
                 match thread_message {
-                    ThreadMessage::Operations(thread_operations) => {
-                        let mut table = tables.get(&thread_operations.table_name).unwrap().lock().await;
-                        let num_of_operations = thread_operations.operations.len();
-
-                        let mut responses = Vec::with_capacity(num_of_operations);
-                        for operation in &thread_operations.operations {
-                            responses.push(
-                                handle_operation(
-                                    operation.clone(),
-                                    &mut table,
-                                    thread_operations.transaction_id,
-                                    transaction_manager.clone()
-                                ).await
-                            );
-                        }
-                        thread_operations.response_sender.send(responses).unwrap();
-                    }
                     ThreadMessage::TransactionBegun(transaction_id) => {
                         let mut manager = transaction_manager.lock().await;
                         manager.add(transaction_id);
                     }
                     ThreadMessage::TransactionPrepare(transaction_id, response_sender) => {
-                        let mut manager = transaction_manager.lock().await;
-                        let transaction = manager.transactions.get_mut(&transaction_id).unwrap();
+                        let manager = transaction_manager.lock().await;
+                        let transaction = manager.transactions.get(&transaction_id).unwrap();
                         response_sender.send(transaction.can_commit(tables.clone()).await).unwrap();
                     }
                     ThreadMessage::TransactionCommit(transaction_id) => {
                         let mut manager = transaction_manager.lock().await;
-                        let transaction = manager.transactions.get_mut(&transaction_id).unwrap();
+                        let mut transaction = manager.transactions.remove(&transaction_id).unwrap();
                         transaction.commit(tables.clone()).await;
                     }
                     ThreadMessage::TransactionAborted(transaction_id) => {
@@ -122,5 +110,3 @@ async fn thread_main(
         }
     }
 }
-
-// TODO allow batches to only affect one table

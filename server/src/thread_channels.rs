@@ -1,5 +1,3 @@
-use crate::handlers::HandlerError;
-use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
@@ -12,40 +10,14 @@ use std::collections::HashMap;
 use storage::Row;
 
 pub enum ThreadMessage {
-    Operations(ThreadOperations),
     TransactionBegun(u64),
     TransactionPrepare(u64, oneshot::Sender<bool>),
     TransactionCommit(u64),
     TransactionAborted(u64),
 }
 
-pub struct ThreadOperations {
-    pub operations: Vec<Operation>,
-    pub table_name: String,
-    pub transaction_id: Option<u64>,
-    pub response_sender: OperationResponseSender,
-}
-
-impl ThreadOperations {
-    pub fn new(
-        operations: Vec<Operation>,
-        table_name: String,
-        transaction_id: Option<u64>,
-        response_sender: OperationResponseSender,
-    ) -> ThreadOperations {
-        ThreadOperations {
-            operations,
-            table_name,
-            transaction_id,
-            response_sender,
-        }
-    }
-}
-
 pub type OperationSender = mpsc::UnboundedSender<ThreadMessage>;
 pub type OperationReceiver = mpsc::UnboundedReceiver<ThreadMessage>;
-
-pub type OperationResponseSender = oneshot::Sender<Vec<Result<OperationResponse, HandlerError>>>;
 
 #[derive(Debug)]
 pub enum Command {
@@ -147,49 +119,15 @@ impl Response {
     }
 }
 
-pub async fn send_operations(
-    operations: Vec<Operation>,
-    table_name: &String,
-    transaction_id: Option<u64>,
+pub async fn send_transaction_begun(
+    transaction_id: u64,
     senders: &mut Vec<OperationSender>,
-) -> Vec<Result<OperationResponse, HandlerError>> {
-    let mut batches: Vec<_> = (0..senders.len()).map(|_| Vec::new()).collect();
-    let mut responses = Vec::with_capacity(operations.len());
-
-    for operation in operations {
-        let hash_key = operation.hash_key();
-        let partition = get_hash_key_target_partition(&hash_key, senders.len());
-        batches[partition].push(operation);
-    }
-
-    for (partition, batch) in batches
-        .into_iter()
-        .enumerate()
-        .filter(|(_, batch)| !batch.is_empty())
-    {
-        let (response_sender, response_receiver) = oneshot::channel();
-        let sender = senders.get_mut(partition).unwrap();
-
-        tracing::info!("Sending batch to thread {}", partition);
-        sender
-            .send(ThreadMessage::Operations(ThreadOperations::new(
-                batch,
-                table_name.clone(),
-                transaction_id,
-                response_sender,
-            )))
-            .await
-            .unwrap();
-        for operation_response in response_receiver.await.unwrap() {
-            responses.push(operation_response);
+    current_partition: usize,
+) {
+    for (partition, sender) in senders.iter_mut().enumerate() {
+        if current_partition == partition {
+            continue;
         }
-    }
-
-    responses
-}
-
-pub async fn send_transaction_begun(transaction_id: u64, senders: &mut Vec<OperationSender>) {
-    for sender in senders.iter_mut() {
         sender
             .send(ThreadMessage::TransactionBegun(transaction_id))
             .await
@@ -201,8 +139,12 @@ pub async fn send_transaction_begun(transaction_id: u64, senders: &mut Vec<Opera
 pub async fn send_transaction_prepare(
     transaction_id: u64,
     senders: &mut Vec<OperationSender>,
+    current_partition: usize,
 ) -> bool {
-    for sender in senders {
+    for (partition, sender) in senders.iter_mut().enumerate() {
+        if current_partition == partition {
+            continue;
+        }
         let (prepare_sender, receiver) = oneshot::channel();
         sender
             .send(ThreadMessage::TransactionPrepare(
@@ -218,8 +160,15 @@ pub async fn send_transaction_prepare(
 
     true
 }
-pub async fn send_transaction_committed(transaction_id: u64, senders: &mut Vec<OperationSender>) {
-    for sender in senders {
+pub async fn send_transaction_committed(
+    transaction_id: u64,
+    senders: &mut Vec<OperationSender>,
+    current_partition: usize,
+) {
+    for (partition, sender) in senders.iter_mut().enumerate() {
+        if current_partition == partition {
+            continue;
+        }
         sender
             .send(ThreadMessage::TransactionCommit(transaction_id))
             .await
@@ -227,8 +176,15 @@ pub async fn send_transaction_committed(transaction_id: u64, senders: &mut Vec<O
     }
 }
 
-pub async fn send_transaction_aborted(transaction_id: u64, senders: &mut Vec<OperationSender>) {
-    for sender in senders.iter_mut() {
+pub async fn send_transaction_aborted(
+    transaction_id: u64,
+    senders: &mut Vec<OperationSender>,
+    current_partition: usize,
+) {
+    for (partition, sender) in senders.iter_mut().enumerate() {
+        if current_partition == partition {
+            continue;
+        }
         sender
             .send(ThreadMessage::TransactionAborted(transaction_id))
             .await

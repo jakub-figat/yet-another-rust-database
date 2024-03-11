@@ -29,6 +29,8 @@ const _PROTOBUF_VERSION_CHECK: () = ::protobuf::VERSION_3_3_0;
 #[derive(PartialEq,Clone,Default,Debug)]
 pub struct Request {
     // message fields
+    // @@protoc_insertion_point(field:Request.transaction_id)
+    pub transaction_id: ::std::option::Option<u64>,
     // @@protoc_insertion_point(field:Request.table)
     pub table: ::std::string::String,
     // message oneof groups
@@ -294,8 +296,155 @@ impl Request {
         }
     }
 
+    // .BeginTransaction begin_transaction = 6;
+
+    pub fn begin_transaction(&self) -> &BeginTransaction {
+        match self.data {
+            ::std::option::Option::Some(request::Data::BeginTransaction(ref v)) => v,
+            _ => <BeginTransaction as ::protobuf::Message>::default_instance(),
+        }
+    }
+
+    pub fn clear_begin_transaction(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_begin_transaction(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(request::Data::BeginTransaction(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_begin_transaction(&mut self, v: BeginTransaction) {
+        self.data = ::std::option::Option::Some(request::Data::BeginTransaction(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_begin_transaction(&mut self) -> &mut BeginTransaction {
+        if let ::std::option::Option::Some(request::Data::BeginTransaction(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(request::Data::BeginTransaction(BeginTransaction::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(request::Data::BeginTransaction(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_begin_transaction(&mut self) -> BeginTransaction {
+        if self.has_begin_transaction() {
+            match self.data.take() {
+                ::std::option::Option::Some(request::Data::BeginTransaction(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            BeginTransaction::new()
+        }
+    }
+
+    // .CommitTransaction commit_transaction = 7;
+
+    pub fn commit_transaction(&self) -> &CommitTransaction {
+        match self.data {
+            ::std::option::Option::Some(request::Data::CommitTransaction(ref v)) => v,
+            _ => <CommitTransaction as ::protobuf::Message>::default_instance(),
+        }
+    }
+
+    pub fn clear_commit_transaction(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_commit_transaction(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(request::Data::CommitTransaction(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_commit_transaction(&mut self, v: CommitTransaction) {
+        self.data = ::std::option::Option::Some(request::Data::CommitTransaction(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_commit_transaction(&mut self) -> &mut CommitTransaction {
+        if let ::std::option::Option::Some(request::Data::CommitTransaction(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(request::Data::CommitTransaction(CommitTransaction::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(request::Data::CommitTransaction(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_commit_transaction(&mut self) -> CommitTransaction {
+        if self.has_commit_transaction() {
+            match self.data.take() {
+                ::std::option::Option::Some(request::Data::CommitTransaction(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            CommitTransaction::new()
+        }
+    }
+
+    // .AbortTransaction abort_transaction = 8;
+
+    pub fn abort_transaction(&self) -> &AbortTransaction {
+        match self.data {
+            ::std::option::Option::Some(request::Data::AbortTransaction(ref v)) => v,
+            _ => <AbortTransaction as ::protobuf::Message>::default_instance(),
+        }
+    }
+
+    pub fn clear_abort_transaction(&mut self) {
+        self.data = ::std::option::Option::None;
+    }
+
+    pub fn has_abort_transaction(&self) -> bool {
+        match self.data {
+            ::std::option::Option::Some(request::Data::AbortTransaction(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_abort_transaction(&mut self, v: AbortTransaction) {
+        self.data = ::std::option::Option::Some(request::Data::AbortTransaction(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_abort_transaction(&mut self) -> &mut AbortTransaction {
+        if let ::std::option::Option::Some(request::Data::AbortTransaction(_)) = self.data {
+        } else {
+            self.data = ::std::option::Option::Some(request::Data::AbortTransaction(AbortTransaction::new()));
+        }
+        match self.data {
+            ::std::option::Option::Some(request::Data::AbortTransaction(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_abort_transaction(&mut self) -> AbortTransaction {
+        if self.has_abort_transaction() {
+            match self.data.take() {
+                ::std::option::Option::Some(request::Data::AbortTransaction(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            AbortTransaction::new()
+        }
+    }
+
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(6);
+        let mut fields = ::std::vec::Vec::with_capacity(10);
         let mut oneofs = ::std::vec::Vec::with_capacity(1);
         fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, GetRequest>(
             "get",
@@ -331,6 +480,32 @@ impl Request {
             Request::batch,
             Request::mut_batch,
             Request::set_batch,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, BeginTransaction>(
+            "begin_transaction",
+            Request::has_begin_transaction,
+            Request::begin_transaction,
+            Request::mut_begin_transaction,
+            Request::set_begin_transaction,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, CommitTransaction>(
+            "commit_transaction",
+            Request::has_commit_transaction,
+            Request::commit_transaction,
+            Request::mut_commit_transaction,
+            Request::set_commit_transaction,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, AbortTransaction>(
+            "abort_transaction",
+            Request::has_abort_transaction,
+            Request::abort_transaction,
+            Request::mut_abort_transaction,
+            Request::set_abort_transaction,
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_option_accessor::<_, _>(
+            "transaction_id",
+            |m: &Request| { &m.transaction_id },
+            |m: &mut Request| { &mut m.transaction_id },
         ));
         fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
             "table",
@@ -372,6 +547,18 @@ impl ::protobuf::Message for Request {
                     self.data = ::std::option::Option::Some(request::Data::Batch(is.read_message()?));
                 },
                 50 => {
+                    self.data = ::std::option::Option::Some(request::Data::BeginTransaction(is.read_message()?));
+                },
+                58 => {
+                    self.data = ::std::option::Option::Some(request::Data::CommitTransaction(is.read_message()?));
+                },
+                66 => {
+                    self.data = ::std::option::Option::Some(request::Data::AbortTransaction(is.read_message()?));
+                },
+                72 => {
+                    self.transaction_id = ::std::option::Option::Some(is.read_uint64()?);
+                },
+                82 => {
                     self.table = is.read_string()?;
                 },
                 tag => {
@@ -386,8 +573,11 @@ impl ::protobuf::Message for Request {
     #[allow(unused_variables)]
     fn compute_size(&self) -> u64 {
         let mut my_size = 0;
+        if let Some(v) = self.transaction_id {
+            my_size += ::protobuf::rt::uint64_size(9, v);
+        }
         if !self.table.is_empty() {
-            my_size += ::protobuf::rt::string_size(6, &self.table);
+            my_size += ::protobuf::rt::string_size(10, &self.table);
         }
         if let ::std::option::Option::Some(ref v) = self.data {
             match v {
@@ -411,6 +601,18 @@ impl ::protobuf::Message for Request {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
                 },
+                &request::Data::BeginTransaction(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+                },
+                &request::Data::CommitTransaction(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+                },
+                &request::Data::AbortTransaction(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
+                },
             };
         }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
@@ -419,8 +621,11 @@ impl ::protobuf::Message for Request {
     }
 
     fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        if let Some(v) = self.transaction_id {
+            os.write_uint64(9, v)?;
+        }
         if !self.table.is_empty() {
-            os.write_string(6, &self.table)?;
+            os.write_string(10, &self.table)?;
         }
         if let ::std::option::Option::Some(ref v) = self.data {
             match v {
@@ -438,6 +643,15 @@ impl ::protobuf::Message for Request {
                 },
                 &request::Data::Batch(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(5, v, os)?;
+                },
+                &request::Data::BeginTransaction(ref v) => {
+                    ::protobuf::rt::write_message_field_with_cached_size(6, v, os)?;
+                },
+                &request::Data::CommitTransaction(ref v) => {
+                    ::protobuf::rt::write_message_field_with_cached_size(7, v, os)?;
+                },
+                &request::Data::AbortTransaction(ref v) => {
+                    ::protobuf::rt::write_message_field_with_cached_size(8, v, os)?;
                 },
             };
         }
@@ -463,12 +677,17 @@ impl ::protobuf::Message for Request {
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.data = ::std::option::Option::None;
+        self.transaction_id = ::std::option::Option::None;
         self.table.clear();
         self.special_fields.clear();
     }
 
     fn default_instance() -> &'static Request {
         static instance: Request = Request {
+            transaction_id: ::std::option::Option::None,
             table: ::std::string::String::new(),
             data: ::std::option::Option::None,
             special_fields: ::protobuf::SpecialFields::new(),
@@ -511,6 +730,12 @@ pub mod request {
         GetMany(super::GetManyRequest),
         // @@protoc_insertion_point(oneof_field:Request.batch)
         Batch(super::BatchRequest),
+        // @@protoc_insertion_point(oneof_field:Request.begin_transaction)
+        BeginTransaction(super::BeginTransaction),
+        // @@protoc_insertion_point(oneof_field:Request.commit_transaction)
+        CommitTransaction(super::CommitTransaction),
+        // @@protoc_insertion_point(oneof_field:Request.abort_transaction)
+        AbortTransaction(super::AbortTransaction),
     }
 
     impl ::protobuf::Oneof for Data {
@@ -1514,28 +1739,343 @@ pub mod batch_item {
     }
 }
 
+// @@protoc_insertion_point(message:BeginTransaction)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct BeginTransaction {
+    // special fields
+    // @@protoc_insertion_point(special_field:BeginTransaction.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a BeginTransaction {
+    fn default() -> &'a BeginTransaction {
+        <BeginTransaction as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl BeginTransaction {
+    pub fn new() -> BeginTransaction {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(0);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<BeginTransaction>(
+            "BeginTransaction",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for BeginTransaction {
+    const NAME: &'static str = "BeginTransaction";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> BeginTransaction {
+        BeginTransaction::new()
+    }
+
+    fn clear(&mut self) {
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static BeginTransaction {
+        static instance: BeginTransaction = BeginTransaction {
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for BeginTransaction {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("BeginTransaction").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for BeginTransaction {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for BeginTransaction {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
+// @@protoc_insertion_point(message:CommitTransaction)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct CommitTransaction {
+    // special fields
+    // @@protoc_insertion_point(special_field:CommitTransaction.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a CommitTransaction {
+    fn default() -> &'a CommitTransaction {
+        <CommitTransaction as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl CommitTransaction {
+    pub fn new() -> CommitTransaction {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(0);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<CommitTransaction>(
+            "CommitTransaction",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for CommitTransaction {
+    const NAME: &'static str = "CommitTransaction";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> CommitTransaction {
+        CommitTransaction::new()
+    }
+
+    fn clear(&mut self) {
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static CommitTransaction {
+        static instance: CommitTransaction = CommitTransaction {
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for CommitTransaction {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("CommitTransaction").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for CommitTransaction {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for CommitTransaction {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
+// @@protoc_insertion_point(message:AbortTransaction)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct AbortTransaction {
+    // special fields
+    // @@protoc_insertion_point(special_field:AbortTransaction.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a AbortTransaction {
+    fn default() -> &'a AbortTransaction {
+        <AbortTransaction as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl AbortTransaction {
+    pub fn new() -> AbortTransaction {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(0);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<AbortTransaction>(
+            "AbortTransaction",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for AbortTransaction {
+    const NAME: &'static str = "AbortTransaction";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> AbortTransaction {
+        AbortTransaction::new()
+    }
+
+    fn clear(&mut self) {
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static AbortTransaction {
+        static instance: AbortTransaction = AbortTransaction {
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for AbortTransaction {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("AbortTransaction").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for AbortTransaction {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for AbortTransaction {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\rrequest.proto\x1a\x0ccommon.proto\"\xf1\x01\n\x07Request\x12\x1f\n\
+    \n\rrequest.proto\x1a\x0ccommon.proto\"\xf9\x03\n\x07Request\x12\x1f\n\
     \x03get\x18\x01\x20\x01(\x0b2\x0b.GetRequestH\0R\x03get\x12(\n\x06insert\
     \x18\x02\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06insert\x12(\n\x06delete\
     \x18\x03\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06delete\x12,\n\x08get_man\
     y\x18\x04\x20\x01(\x0b2\x0f.GetManyRequestH\0R\x07getMany\x12%\n\x05batc\
-    h\x18\x05\x20\x01(\x0b2\r.BatchRequestH\0R\x05batch\x12\x14\n\x05table\
-    \x18\x06\x20\x01(\tR\x05tableB\x06\n\x04data\"J\n\nGetRequest\x12\x19\n\
-    \x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\
-    \x20\x01(\x0b2\x06.ValueR\x07sortKey\"\xc4\x01\n\rInsertRequest\x12\x19\
-    \n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\
-    \x20\x01(\x0b2\x06.ValueR\x07sortKey\x122\n\x06values\x18\x03\x20\x03(\
-    \x0b2\x1a.InsertRequest.ValuesEntryR\x06values\x1aA\n\x0bValuesEntry\x12\
-    \x10\n\x03key\x18\x01\x20\x01(\tR\x03key\x12\x1c\n\x05value\x18\x02\x20\
-    \x01(\x0b2\x06.ValueR\x05value:\x028\x01\"M\n\rDeleteRequest\x12\x19\n\
-    \x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\
-    \x20\x01(\x0b2\x06.ValueR\x07sortKey\"3\n\x0eGetManyRequest\x12!\n\x05it\
-    ems\x18\x01\x20\x03(\x0b2\x0b.GetRequestR\x05items\"0\n\x0cBatchRequest\
-    \x12\x20\n\x05items\x18\x01\x20\x03(\x0b2\n.BatchItemR\x05items\"g\n\tBa\
-    tchItem\x12(\n\x06insert\x18\x01\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06\
-    insert\x12(\n\x06delete\x18\x02\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06d\
-    eleteB\x06\n\x04itemb\x06proto3\
+    h\x18\x05\x20\x01(\x0b2\r.BatchRequestH\0R\x05batch\x12@\n\x11begin_tran\
+    saction\x18\x06\x20\x01(\x0b2\x11.BeginTransactionH\0R\x10beginTransacti\
+    on\x12C\n\x12commit_transaction\x18\x07\x20\x01(\x0b2\x12.CommitTransact\
+    ionH\0R\x11commitTransaction\x12@\n\x11abort_transaction\x18\x08\x20\x01\
+    (\x0b2\x11.AbortTransactionH\0R\x10abortTransaction\x12*\n\x0etransactio\
+    n_id\x18\t\x20\x01(\x04H\x01R\rtransactionId\x88\x01\x01\x12\x14\n\x05ta\
+    ble\x18\n\x20\x01(\tR\x05tableB\x06\n\x04dataB\x11\n\x0f_transaction_id\
+    \"J\n\nGetRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\
+    \x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\"\xc4\
+    \x01\n\rInsertRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashK\
+    ey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\x122\n\
+    \x06values\x18\x03\x20\x03(\x0b2\x1a.InsertRequest.ValuesEntryR\x06value\
+    s\x1aA\n\x0bValuesEntry\x12\x10\n\x03key\x18\x01\x20\x01(\tR\x03key\x12\
+    \x1c\n\x05value\x18\x02\x20\x01(\x0b2\x06.ValueR\x05value:\x028\x01\"M\n\
+    \rDeleteRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\x07hashKey\x12\
+    !\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortKey\"3\n\x0eGetM\
+    anyRequest\x12!\n\x05items\x18\x01\x20\x03(\x0b2\x0b.GetRequestR\x05item\
+    s\"0\n\x0cBatchRequest\x12\x20\n\x05items\x18\x01\x20\x03(\x0b2\n.BatchI\
+    temR\x05items\"g\n\tBatchItem\x12(\n\x06insert\x18\x01\x20\x01(\x0b2\x0e\
+    .InsertRequestH\0R\x06insert\x12(\n\x06delete\x18\x02\x20\x01(\x0b2\x0e.\
+    DeleteRequestH\0R\x06deleteB\x06\n\x04item\"\x12\n\x10BeginTransaction\"\
+    \x13\n\x11CommitTransaction\"\x12\n\x10AbortTransactionb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -1554,7 +2094,7 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(1);
             deps.push(super::common::file_descriptor().clone());
-            let mut messages = ::std::vec::Vec::with_capacity(7);
+            let mut messages = ::std::vec::Vec::with_capacity(10);
             messages.push(Request::generated_message_descriptor_data());
             messages.push(GetRequest::generated_message_descriptor_data());
             messages.push(InsertRequest::generated_message_descriptor_data());
@@ -1562,6 +2102,9 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
             messages.push(GetManyRequest::generated_message_descriptor_data());
             messages.push(BatchRequest::generated_message_descriptor_data());
             messages.push(BatchItem::generated_message_descriptor_data());
+            messages.push(BeginTransaction::generated_message_descriptor_data());
+            messages.push(CommitTransaction::generated_message_descriptor_data());
+            messages.push(AbortTransaction::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(0);
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(
                 file_descriptor_proto(),

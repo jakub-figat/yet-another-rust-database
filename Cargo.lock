@@ -751,6 +751,7 @@ dependencies = [
  "monoio",
  "protobuf",
  "protos",
+ "rand",
  "storage",
  "tracing",
  "tracing-subscriber",
@@ -804,6 +805,7 @@ name = "storage"
 version = "0.1.0"
 dependencies = [
  "common",
+ "futures",
  "get-size",
  "monoio",
  "rand",

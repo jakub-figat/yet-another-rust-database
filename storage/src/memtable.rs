@@ -62,14 +62,7 @@ impl Memtable {
         None
     }
 
-    pub fn insert(&mut self, row: Row) -> Result<(), String> {
-        if self.memory_size > MEMTABLE_MAX_SIZE_MEGABYTES * MEGABYTE {
-            Err(format!(
-                "Memtable reached max size of {} MB with {} nodes",
-                MEMTABLE_MAX_SIZE_MEGABYTES, self.size
-            ))?
-        }
-
+    pub fn insert(&mut self, row: Row) {
         let new_level = self.get_random_level();
         let update_vec = self.get_update_vec(&row.primary_key, new_level);
 
@@ -77,7 +70,7 @@ impl Memtable {
             if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
                 if &row.primary_key == &(*next_node.as_ptr()).row.primary_key {
                     (*next_node.as_ptr()).row.values = row.values;
-                    return Ok(());
+                    return;
                 }
             }
 
@@ -90,7 +83,6 @@ impl Memtable {
         }
 
         self.size += 1;
-        Ok(())
     }
 
     pub fn delete(&mut self, primary_key: &String) -> bool {
@@ -122,6 +114,10 @@ impl Memtable {
             }
         }
         false
+    }
+
+    pub fn max_size_reached(&self) -> bool {
+        self.memory_size > MEMTABLE_MAX_SIZE_MEGABYTES * MEGABYTE
     }
 
     fn get_update_vec(&mut self, primary_key: &String, level_limit: usize) -> Vec<ListNode> {

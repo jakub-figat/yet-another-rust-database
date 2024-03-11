@@ -10,8 +10,9 @@ message Response {
         DeleteResponse delete = 3;
         GetManyResponse get_many = 4;
         BatchResponse batch = 5;
-        ClientError client_error = 6;
-        ServerError server_error = 7;
+        TransactionResponse transaction = 6;
+        ClientError client_error = 7;
+        ServerError server_error = 8;
     }
 }
 
@@ -37,6 +38,11 @@ message GetManyResponse {
 
 message BatchResponse {
     bool okay = 1;
+}
+
+message TransactionResponse {
+    bool okay = 1;
+    uint64 transaction_id = 2;
 }
 
 message ClientError {

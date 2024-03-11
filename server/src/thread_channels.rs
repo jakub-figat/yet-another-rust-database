@@ -6,14 +6,42 @@ use futures::SinkExt;
 use protos::util::{parse_message_field_from_value, parse_proto_from_value};
 use protos::{
     BatchResponse, DeleteResponse, GetManyResponse, GetResponse, InsertResponse, ProtoResponse,
-    ProtoResponseData,
+    ProtoResponseData, TransactionResponse,
 };
 use std::collections::HashMap;
 use storage::Row;
 
-pub type OperationSender = mpsc::UnboundedSender<(Vec<Operation>, String, OperationResponseSender)>;
-pub type OperationReceiver =
-    mpsc::UnboundedReceiver<(Vec<Operation>, String, OperationResponseSender)>;
+pub enum ThreadMessage {
+    Operations(ThreadOperations),
+    TransactionBegun(u64),
+    TransactionAborted(u64),
+}
+
+pub struct ThreadOperations {
+    pub operations: Vec<Operation>,
+    pub table_name: String,
+    pub transaction_id: Option<u64>,
+    pub response_sender: OperationResponseSender,
+}
+
+impl ThreadOperations {
+    pub fn new(
+        operations: Vec<Operation>,
+        table_name: String,
+        transaction_id: Option<u64>,
+        response_sender: OperationResponseSender,
+    ) -> ThreadOperations {
+        ThreadOperations {
+            operations,
+            table_name,
+            transaction_id,
+            response_sender,
+        }
+    }
+}
+
+pub type OperationSender = mpsc::UnboundedSender<ThreadMessage>;
+pub type OperationReceiver = mpsc::UnboundedReceiver<ThreadMessage>;
 
 pub type OperationResponseSender = oneshot::Sender<Vec<Result<OperationResponse, HandlerError>>>;
 
@@ -22,9 +50,12 @@ pub enum Command {
     Single(Operation, String),
     GetMany(Vec<Operation>, String),
     Batch(Vec<Operation>, String),
+    BeginTransaction,
+    CommitTransaction,
+    AbortTransaction,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operation {
     Get(String, Value),
     Insert(String, Value, HashMap<String, Value>),
@@ -46,12 +77,13 @@ pub enum Response {
     Single(OperationResponse),
     GetMany(Vec<OperationResponse>),
     Batch(Vec<OperationResponse>),
+    Transaction(u64),
 }
 
 #[derive(Debug)]
 pub enum OperationResponse {
     Get(Option<Row>),
-    Insert(Result<(), String>),
+    Insert,
     Delete(bool),
 }
 
@@ -64,9 +96,9 @@ impl Response {
                     let get_response = row_to_get_response(row);
                     ProtoResponseData::Get(get_response)
                 }),
-                OperationResponse::Insert(result) => {
+                OperationResponse::Insert => {
                     let mut insert_response = InsertResponse::new();
-                    insert_response.okay = result.is_ok();
+                    insert_response.okay = true;
                     Some(ProtoResponseData::Insert(insert_response))
                 }
                 OperationResponse::Delete(result) => {
@@ -94,12 +126,17 @@ impl Response {
                 let mut batch_response = BatchResponse::new();
                 batch_response.okay = operation_responses.into_iter().all(|operation_response| {
                     match operation_response {
-                        OperationResponse::Insert(insert) => insert.is_ok(),
+                        OperationResponse::Insert => true,
                         OperationResponse::Delete(delete) => delete,
                         _ => panic!("Invalid operation response type"),
                     }
                 });
                 Some(ProtoResponseData::Batch(batch_response))
+            }
+            Response::Transaction(transaction_id) => {
+                let mut transaction_response = TransactionResponse::new();
+                transaction_response.transaction_id = transaction_id;
+                Some(ProtoResponseData::Transaction(transaction_response))
             }
         };
 
@@ -110,8 +147,9 @@ impl Response {
 
 pub async fn send_operations(
     operations: Vec<Operation>,
-    mut senders: Vec<OperationSender>,
     table_name: &String,
+    transaction_id: Option<u64>,
+    senders: &mut Vec<OperationSender>,
 ) -> Vec<Result<OperationResponse, HandlerError>> {
     let mut batches: Vec<_> = (0..senders.len()).map(|_| Vec::new()).collect();
     let mut responses = Vec::with_capacity(operations.len());
@@ -132,7 +170,12 @@ pub async fn send_operations(
 
         tracing::info!("Sending batch to thread {}", partition);
         sender
-            .send((batch, table_name.clone(), response_sender))
+            .send(ThreadMessage::Operations(ThreadOperations::new(
+                batch,
+                table_name.clone(),
+                transaction_id,
+                response_sender,
+            )))
             .await
             .unwrap();
         for operation_response in response_receiver.await.unwrap() {
@@ -141,6 +184,27 @@ pub async fn send_operations(
     }
 
     responses
+}
+
+pub async fn send_transaction_begun(transaction_id: u64, senders: &mut Vec<OperationSender>) {
+    for sender in senders.iter_mut() {
+        sender
+            .send(ThreadMessage::TransactionBegun(transaction_id))
+            .await
+            .unwrap();
+    }
+}
+
+// prepare
+// commit
+
+pub async fn send_transaction_aborted(transaction_id: u64, senders: &mut Vec<OperationSender>) {
+    for sender in senders.iter_mut() {
+        sender
+            .send(ThreadMessage::TransactionAborted(transaction_id))
+            .await
+            .unwrap();
+    }
 }
 
 fn row_to_get_response(row: Row) -> GetResponse {

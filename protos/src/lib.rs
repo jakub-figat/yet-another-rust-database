@@ -11,4 +11,5 @@ pub use request::{
 pub use response::{
     response::Data as ProtoResponseData, BatchResponse, ClientError, DeleteResponse,
     GetManyResponse, GetResponse, InsertResponse, Response as ProtoResponse, ServerError,
+    TransactionResponse,
 };

@@ -4,21 +4,22 @@ use protos::util::parse_value_from_proto;
 use protos::{BatchItemData, ProtoRequest, ProtoRequestData};
 use std::collections::HashMap;
 
-pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String> {
+pub fn parse_request_from_bytes(buffer: &mut Vec<u8>) -> Result<ProtoRequest, String> {
     let request = ProtoRequest::parse_from_bytes(&buffer).map_err(|err| err.to_string());
     buffer.clear();
 
-    let parsed_request = request?;
-    let request_data = parsed_request
-        .data
-        .ok_or("Invalid request data".to_string())?;
+    request
+}
+
+pub fn parse_command_from_request(request: ProtoRequest) -> Result<Command, String> {
+    let request_data = request.data.ok_or("Invalid request data".to_string())?;
 
     match request_data {
         ProtoRequestData::Get(get) => {
             let sort_key = parse_value_from_proto(get.sort_key.unwrap());
             Ok(Command::Single(
                 Operation::Get(get.hash_key, sort_key),
-                parsed_request.table,
+                request.table,
             ))
         }
         ProtoRequestData::Insert(insert) => {
@@ -30,14 +31,14 @@ pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String>
                 .collect();
             Ok(Command::Single(
                 Operation::Insert(insert.hash_key, sort_key, values),
-                parsed_request.table,
+                request.table,
             ))
         }
         ProtoRequestData::Delete(delete) => {
             let sort_key = parse_value_from_proto(delete.sort_key.unwrap());
             Ok(Command::Single(
                 Operation::Delete(delete.hash_key, sort_key),
-                parsed_request.table,
+                request.table,
             ))
         }
         ProtoRequestData::GetMany(get_many) => {
@@ -49,7 +50,7 @@ pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String>
                     Operation::Get(get.hash_key, sort_key)
                 })
                 .collect();
-            Ok(Command::GetMany(operations, parsed_request.table))
+            Ok(Command::GetMany(operations, request.table))
         }
         ProtoRequestData::Batch(batch) => {
             let mut operations = Vec::with_capacity(batch.items.len());
@@ -76,8 +77,11 @@ pub fn parse_command_from_bytes(buffer: &mut Vec<u8>) -> Result<Command, String>
                 }?;
                 operations.push(operation);
             }
-            Ok(Command::Batch(operations, parsed_request.table))
+            Ok(Command::Batch(operations, request.table))
         }
+        ProtoRequestData::BeginTransaction(_) => Ok(Command::BeginTransaction),
+        ProtoRequestData::CommitTransaction(_) => Ok(Command::CommitTransaction),
+        ProtoRequestData::AbortTransaction(_) => Ok(Command::AbortTransaction),
         _ => panic!("Invalid proto request data type"),
     }
 }

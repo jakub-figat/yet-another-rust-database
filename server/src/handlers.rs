@@ -1,8 +1,10 @@
-use crate::proto_parsing::parse_command_from_bytes;
-use crate::thread_channels::Operation::{Delete, Get, Insert};
+use crate::proto_parsing::{parse_command_from_request, parse_request_from_bytes};
 use crate::thread_channels::{
-    send_operations, Command, Operation, OperationResponse, OperationSender, Response,
+    send_operations, send_transaction_aborted, send_transaction_begun, Command, OperationSender,
+    Response, ThreadMessage, ThreadOperations,
 };
+use crate::transaction_manager::TransactionManager;
+use crate::util::{handle_operation, write_to_tcp};
 use common::partition::get_hash_key_target_partition;
 use futures::channel::oneshot;
 use futures::lock::Mutex;
@@ -16,15 +18,14 @@ use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use storage::table::Table;
-use storage::validation::validate_values_against_schema;
-use storage::Row;
 
 pub async fn handle_tcp_stream(
     mut stream: TcpStream,
     partition: usize,
     num_of_threads: usize,
-    senders: Vec<OperationSender>,
+    mut senders: Vec<OperationSender>,
     tables: Arc<HashMap<String, Mutex<Table>>>,
+    transaction_manager: Arc<Mutex<TransactionManager>>,
 ) {
     tracing::info!("Accepting connection on thread {}", partition);
 
@@ -36,43 +37,49 @@ pub async fn handle_tcp_stream(
     }
 
     loop {
-        let response_bytes =
-            match listen_for_tcp_request(&mut stream, partition, senders.clone(), tables.clone())
-                .await
-            {
-                Ok(proto_response) => proto_response.write_to_bytes().unwrap(),
-                Err(handler_error) => match handler_error {
-                    HandlerError::Client(client_error) => {
-                        tracing::warn!("Invalid request on thread {}", partition);
+        let response_bytes = match handle_tcp_request(
+            &mut stream,
+            partition,
+            &mut senders,
+            tables.clone(),
+            transaction_manager.clone(),
+        )
+        .await
+        {
+            Ok(proto_response) => proto_response.write_to_bytes().unwrap(),
+            Err(handler_error) => match handler_error {
+                HandlerError::Client(client_error) => {
+                    tracing::warn!("Invalid request on thread {}", partition);
 
-                        let proto_response = client_error_to_proto_response(client_error);
-                        proto_response.write_to_bytes().unwrap()
-                    }
-                    HandlerError::Server(server_error) => {
-                        tracing::error!("Internal server error: {}", server_error);
+                    let proto_response = client_error_to_proto_response(client_error);
+                    proto_response.write_to_bytes().unwrap()
+                }
+                HandlerError::Server(server_error) => {
+                    tracing::error!("Internal server error: {}", server_error);
 
-                        let mut server_error = ServerError::new();
-                        server_error.detail = "Internal server error".to_string();
+                    let mut server_error = ServerError::new();
+                    server_error.detail = "Internal server error".to_string();
 
-                        let mut proto_response = ProtoResponse::new();
-                        proto_response.data = Some(ProtoResponseData::ServerError(server_error));
-                        proto_response.write_to_bytes().unwrap()
-                    }
-                    HandlerError::Disconnected => {
-                        tracing::warn!("Client disconnected on thread {}", partition);
-                        return;
-                    }
-                },
-            };
+                    let mut proto_response = ProtoResponse::new();
+                    proto_response.data = Some(ProtoResponseData::ServerError(server_error));
+                    proto_response.write_to_bytes().unwrap()
+                }
+                HandlerError::Disconnected => {
+                    tracing::warn!("Client disconnected on thread {}", partition);
+                    return;
+                }
+            },
+        };
         write_to_tcp(&mut stream, response_bytes).await;
     }
 }
 
-async fn listen_for_tcp_request(
+async fn handle_tcp_request(
     stream: &mut TcpStream,
     current_partition: usize,
-    mut senders: Vec<OperationSender>,
+    senders: &mut Vec<OperationSender>,
     tables: Arc<HashMap<String, Mutex<Table>>>,
+    transaction_manager: Arc<Mutex<TransactionManager>>,
 ) -> Result<ProtoResponse, HandlerError> {
     let request_size = stream
         .read_u32()
@@ -85,20 +92,17 @@ async fn listen_for_tcp_request(
                 error.to_string()
             )),
         })?;
-    tracing::info!("Incoming command on thread {}", current_partition);
 
     let buffer = vec![0u8; request_size as usize];
     let (result, mut buffer) = stream.read_exact(buffer).await;
     result.map_err(|e| HandlerError::Server(e.to_string()))?;
 
-    let command = parse_command_from_bytes(&mut buffer).map_err(|e| {
-        tracing::warn!(
-            "Invalid command on thread {}: {}",
-            current_partition,
-            e.to_string()
-        );
-        HandlerError::Client(format!("Invalid command: {}", e.to_string()))
-    })?;
+    let request = parse_request_from_bytes(&mut buffer)
+        .map_err(|e| client_error_from_string(&e, current_partition))?;
+
+    let transaction_id = request.transaction_id;
+    let command = parse_command_from_request(request)
+        .map_err(|e| client_error_from_string(&e, current_partition))?;
 
     let proto_response = match command {
         Command::Single(operation, table_name) => {
@@ -115,7 +119,13 @@ async fn listen_for_tcp_request(
                         .lock()
                         .await;
 
-                    handle_operation(operation, &mut table)
+                    handle_operation(
+                        operation,
+                        &mut table,
+                        transaction_id,
+                        transaction_manager.clone(),
+                    )
+                    .await
                 }
                 false => {
                     tracing::info!(
@@ -126,7 +136,12 @@ async fn listen_for_tcp_request(
                     let (response_sender, response_receiver) = oneshot::channel();
                     let sender = senders.get_mut(target_partition).unwrap();
                     sender
-                        .send((Vec::from([operation]), table_name, response_sender))
+                        .send(ThreadMessage::Operations(ThreadOperations::new(
+                            Vec::from([operation]),
+                            table_name,
+                            transaction_id,
+                            response_sender,
+                        )))
                         .await
                         .unwrap();
                     response_receiver.await.unwrap().pop().unwrap()
@@ -144,7 +159,7 @@ async fn listen_for_tcp_request(
 
             tracing::info!("Sending get requests from thread {}", current_partition);
             let operation_responses =
-                send_operations(operations, senders.clone(), &table_name).await;
+                send_operations(operations, &table_name, transaction_id, senders).await;
             let mut responses = Vec::with_capacity(operation_responses.len());
             for operation_response in operation_responses {
                 responses.push(operation_response?);
@@ -162,7 +177,7 @@ async fn listen_for_tcp_request(
 
             tracing::info!("Sending batches from thread {}", current_partition);
             let operation_responses =
-                send_operations(operations, senders.clone(), &table_name).await;
+                send_operations(operations, &table_name, transaction_id, senders).await;
 
             let mut responses = Vec::with_capacity(operation_responses.len());
             for operation_response in operation_responses {
@@ -170,50 +185,49 @@ async fn listen_for_tcp_request(
             }
             Response::Batch(responses).to_proto_response()
         }
+        Command::BeginTransaction => {
+            let mut manager = transaction_manager.lock().await;
+            let transaction_id = manager.begin();
+            send_transaction_begun(transaction_id, senders).await;
+            Response::Transaction(transaction_id).to_proto_response()
+        }
+        Command::CommitTransaction => {
+            let mut manager = transaction_manager.lock().await;
+            let transaction_id = transaction_id.ok_or(HandlerError::Client(
+                "Transaction id cannot be null".to_string(),
+            ))?;
+            manager.commit(transaction_id, tables.clone()).await?;
+
+            Response::Transaction(transaction_id).to_proto_response()
+        }
+        Command::AbortTransaction => {
+            let mut manager = transaction_manager.lock().await;
+            let transaction_id = transaction_id.ok_or(HandlerError::Client(
+                "Transaction id cannot be null".to_string(),
+            ))?;
+            if !manager.abort(transaction_id) {
+                return Err(HandlerError::Client(format!(
+                    "Cannot abort non existing transaction with id '{}'",
+                    transaction_id
+                )));
+            }
+
+            send_transaction_aborted(transaction_id, senders).await;
+
+            Response::Transaction(transaction_id).to_proto_response()
+        }
     };
 
     tracing::info!("Request on thread {} handled", current_partition);
     Ok(proto_response)
 }
 
-pub fn handle_operation(
-    operation: Operation,
-    table: &mut Table,
-) -> Result<OperationResponse, HandlerError> {
-    match operation {
-        Get(hash_key, sort_key) => {
-            let primary_key = format!("{}:{}", hash_key, sort_key);
-            let val = table.memtable.get(&primary_key).cloned();
-            Ok(OperationResponse::Get(val))
-        }
-        Insert(hash_key, sort_key, values) => {
-            validate_values_against_schema(&values, &table.table_schema)
-                .map_err(|e| HandlerError::Client(e))?;
-
-            let val = table.memtable.insert(Row::new(hash_key, sort_key, values));
-            Ok(OperationResponse::Insert(val))
-        }
-        Delete(hash_key, sort_key) => {
-            let primary_key = format!("{}:{}", hash_key, sort_key);
-
-            let val = table.memtable.delete(&primary_key);
-            Ok(OperationResponse::Delete(val))
-        }
-    }
+fn client_error_from_string(error: &str, partition: usize) -> HandlerError {
+    tracing::warn!("Invalid request on thread {}: {}", partition, error);
+    HandlerError::Client(format!("Invalid request: {}", error))
 }
 
-async fn write_to_tcp(stream: &mut TcpStream, bytes: Vec<u8>) {
-    let response_size_prefix = (bytes.len() as u32).to_be_bytes().to_vec();
-    if let (Err(error), _) = stream.write_all(response_size_prefix).await {
-        tracing::error!("Couldn't write response to tcp, {}", error);
-    }
-
-    if let (Err(error), _) = stream.write_all(bytes).await {
-        tracing::error!("Couldn't write response to tcp, {}", error);
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum HandlerError {
     Client(String),
     Server(String),

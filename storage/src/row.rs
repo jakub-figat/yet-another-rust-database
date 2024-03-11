@@ -11,6 +11,7 @@ pub struct Row {
     pub sort_key: Value,
     pub primary_key: String,
     pub values: HashMap<String, Value>,
+    pub version: u32, // for MVCC transaction
 }
 
 impl Row {
@@ -27,6 +28,7 @@ impl Row {
             sort_key,
             primary_key,
             values,
+            version: 1,
         }
     }
 }
@@ -50,6 +52,7 @@ impl Default for Row {
             sort_key: Varchar("".to_string()),
             primary_key: "".to_string(),
             values: HashMap::new(),
+            version: 1,
         }
     }
 }

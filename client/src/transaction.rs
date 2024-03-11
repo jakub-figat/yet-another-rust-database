@@ -81,3 +81,4 @@ impl Transaction {
 }
 
 // TODO: figure out a way to hold reference to connection here to enable finer API and impl Drop
+// TODO: change most pub to pub(crate)

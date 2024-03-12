@@ -492,52 +492,52 @@ impl Request {
         }
     }
 
-    // .DeleteTableRequest delete_table = 10;
+    // .DropTableRequest drop_table = 10;
 
-    pub fn delete_table(&self) -> &DeleteTableRequest {
+    pub fn drop_table(&self) -> &DropTableRequest {
         match self.data {
-            ::std::option::Option::Some(request::Data::DeleteTable(ref v)) => v,
-            _ => <DeleteTableRequest as ::protobuf::Message>::default_instance(),
+            ::std::option::Option::Some(request::Data::DropTable(ref v)) => v,
+            _ => <DropTableRequest as ::protobuf::Message>::default_instance(),
         }
     }
 
-    pub fn clear_delete_table(&mut self) {
+    pub fn clear_drop_table(&mut self) {
         self.data = ::std::option::Option::None;
     }
 
-    pub fn has_delete_table(&self) -> bool {
+    pub fn has_drop_table(&self) -> bool {
         match self.data {
-            ::std::option::Option::Some(request::Data::DeleteTable(..)) => true,
+            ::std::option::Option::Some(request::Data::DropTable(..)) => true,
             _ => false,
         }
     }
 
     // Param is passed by value, moved
-    pub fn set_delete_table(&mut self, v: DeleteTableRequest) {
-        self.data = ::std::option::Option::Some(request::Data::DeleteTable(v))
+    pub fn set_drop_table(&mut self, v: DropTableRequest) {
+        self.data = ::std::option::Option::Some(request::Data::DropTable(v))
     }
 
     // Mutable pointer to the field.
-    pub fn mut_delete_table(&mut self) -> &mut DeleteTableRequest {
-        if let ::std::option::Option::Some(request::Data::DeleteTable(_)) = self.data {
+    pub fn mut_drop_table(&mut self) -> &mut DropTableRequest {
+        if let ::std::option::Option::Some(request::Data::DropTable(_)) = self.data {
         } else {
-            self.data = ::std::option::Option::Some(request::Data::DeleteTable(DeleteTableRequest::new()));
+            self.data = ::std::option::Option::Some(request::Data::DropTable(DropTableRequest::new()));
         }
         match self.data {
-            ::std::option::Option::Some(request::Data::DeleteTable(ref mut v)) => v,
+            ::std::option::Option::Some(request::Data::DropTable(ref mut v)) => v,
             _ => panic!(),
         }
     }
 
     // Take field
-    pub fn take_delete_table(&mut self) -> DeleteTableRequest {
-        if self.has_delete_table() {
+    pub fn take_drop_table(&mut self) -> DropTableRequest {
+        if self.has_drop_table() {
             match self.data.take() {
-                ::std::option::Option::Some(request::Data::DeleteTable(v)) => v,
+                ::std::option::Option::Some(request::Data::DropTable(v)) => v,
                 _ => panic!(),
             }
         } else {
-            DeleteTableRequest::new()
+            DropTableRequest::new()
         }
     }
 
@@ -607,12 +607,12 @@ impl Request {
             Request::mut_sync_model,
             Request::set_sync_model,
         ));
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, DeleteTableRequest>(
-            "delete_table",
-            Request::has_delete_table,
-            Request::delete_table,
-            Request::mut_delete_table,
-            Request::set_delete_table,
+        fields.push(::protobuf::reflect::rt::v2::make_oneof_message_has_get_mut_set_accessor::<_, DropTableRequest>(
+            "drop_table",
+            Request::has_drop_table,
+            Request::drop_table,
+            Request::mut_drop_table,
+            Request::set_drop_table,
         ));
         fields.push(::protobuf::reflect::rt::v2::make_option_accessor::<_, _>(
             "transaction_id",
@@ -671,7 +671,7 @@ impl ::protobuf::Message for Request {
                     self.data = ::std::option::Option::Some(request::Data::SyncModel(is.read_message()?));
                 },
                 82 => {
-                    self.data = ::std::option::Option::Some(request::Data::DeleteTable(is.read_message()?));
+                    self.data = ::std::option::Option::Some(request::Data::DropTable(is.read_message()?));
                 },
                 88 => {
                     self.transaction_id = ::std::option::Option::Some(is.read_uint64()?);
@@ -735,7 +735,7 @@ impl ::protobuf::Message for Request {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
                 },
-                &request::Data::DeleteTable(ref v) => {
+                &request::Data::DropTable(ref v) => {
                     let len = v.compute_size();
                     my_size += 1 + ::protobuf::rt::compute_raw_varint64_size(len) + len;
                 },
@@ -782,7 +782,7 @@ impl ::protobuf::Message for Request {
                 &request::Data::SyncModel(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(9, v, os)?;
                 },
-                &request::Data::DeleteTable(ref v) => {
+                &request::Data::DropTable(ref v) => {
                     ::protobuf::rt::write_message_field_with_cached_size(10, v, os)?;
                 },
             };
@@ -872,8 +872,8 @@ pub mod request {
         AbortTransaction(super::AbortTransaction),
         // @@protoc_insertion_point(oneof_field:Request.sync_model)
         SyncModel(super::SyncModelRequest),
-        // @@protoc_insertion_point(oneof_field:Request.delete_table)
-        DeleteTable(super::DeleteTableRequest),
+        // @@protoc_insertion_point(oneof_field:Request.drop_table)
+        DropTable(super::DropTableRequest),
     }
 
     impl ::protobuf::Oneof for Data {
@@ -2308,38 +2308,38 @@ impl ::protobuf::reflect::ProtobufValue for SyncModelRequest {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
-// @@protoc_insertion_point(message:DeleteTableRequest)
+// @@protoc_insertion_point(message:DropTableRequest)
 #[derive(PartialEq,Clone,Default,Debug)]
-pub struct DeleteTableRequest {
+pub struct DropTableRequest {
     // special fields
-    // @@protoc_insertion_point(special_field:DeleteTableRequest.special_fields)
+    // @@protoc_insertion_point(special_field:DropTableRequest.special_fields)
     pub special_fields: ::protobuf::SpecialFields,
 }
 
-impl<'a> ::std::default::Default for &'a DeleteTableRequest {
-    fn default() -> &'a DeleteTableRequest {
-        <DeleteTableRequest as ::protobuf::Message>::default_instance()
+impl<'a> ::std::default::Default for &'a DropTableRequest {
+    fn default() -> &'a DropTableRequest {
+        <DropTableRequest as ::protobuf::Message>::default_instance()
     }
 }
 
-impl DeleteTableRequest {
-    pub fn new() -> DeleteTableRequest {
+impl DropTableRequest {
+    pub fn new() -> DropTableRequest {
         ::std::default::Default::default()
     }
 
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
         let mut fields = ::std::vec::Vec::with_capacity(0);
         let mut oneofs = ::std::vec::Vec::with_capacity(0);
-        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<DeleteTableRequest>(
-            "DeleteTableRequest",
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<DropTableRequest>(
+            "DropTableRequest",
             fields,
             oneofs,
         )
     }
 }
 
-impl ::protobuf::Message for DeleteTableRequest {
-    const NAME: &'static str = "DeleteTableRequest";
+impl ::protobuf::Message for DropTableRequest {
+    const NAME: &'static str = "DropTableRequest";
 
     fn is_initialized(&self) -> bool {
         true
@@ -2378,41 +2378,41 @@ impl ::protobuf::Message for DeleteTableRequest {
         &mut self.special_fields
     }
 
-    fn new() -> DeleteTableRequest {
-        DeleteTableRequest::new()
+    fn new() -> DropTableRequest {
+        DropTableRequest::new()
     }
 
     fn clear(&mut self) {
         self.special_fields.clear();
     }
 
-    fn default_instance() -> &'static DeleteTableRequest {
-        static instance: DeleteTableRequest = DeleteTableRequest {
+    fn default_instance() -> &'static DropTableRequest {
+        static instance: DropTableRequest = DropTableRequest {
             special_fields: ::protobuf::SpecialFields::new(),
         };
         &instance
     }
 }
 
-impl ::protobuf::MessageFull for DeleteTableRequest {
+impl ::protobuf::MessageFull for DropTableRequest {
     fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
         static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
-        descriptor.get(|| file_descriptor().message_by_package_relative_name("DeleteTableRequest").unwrap()).clone()
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("DropTableRequest").unwrap()).clone()
     }
 }
 
-impl ::std::fmt::Display for DeleteTableRequest {
+impl ::std::fmt::Display for DropTableRequest {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         ::protobuf::text_format::fmt(self, f)
     }
 }
 
-impl ::protobuf::reflect::ProtobufValue for DeleteTableRequest {
+impl ::protobuf::reflect::ProtobufValue for DropTableRequest {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\rrequest.proto\x1a\x0ccommon.proto\"\xe7\x04\n\x07Request\x12\x1f\n\
+    \n\rrequest.proto\x1a\x0ccommon.proto\"\xe1\x04\n\x07Request\x12\x1f\n\
     \x03get\x18\x01\x20\x01(\x0b2\x0b.GetRequestH\0R\x03get\x12(\n\x06insert\
     \x18\x02\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06insert\x12(\n\x06delete\
     \x18\x03\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06delete\x12,\n\x08get_man\
@@ -2422,27 +2422,27 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     on\x12C\n\x12commit_transaction\x18\x07\x20\x01(\x0b2\x12.CommitTransact\
     ionH\0R\x11commitTransaction\x12@\n\x11abort_transaction\x18\x08\x20\x01\
     (\x0b2\x11.AbortTransactionH\0R\x10abortTransaction\x122\n\nsync_model\
-    \x18\t\x20\x01(\x0b2\x11.SyncModelRequestH\0R\tsyncModel\x128\n\x0cdelet\
-    e_table\x18\n\x20\x01(\x0b2\x13.DeleteTableRequestH\0R\x0bdeleteTable\
-    \x12*\n\x0etransaction_id\x18\x0b\x20\x01(\x04H\x01R\rtransactionId\x88\
-    \x01\x01\x12\x14\n\x05table\x18\x0c\x20\x01(\tR\x05tableB\x06\n\x04dataB\
-    \x11\n\x0f_transaction_id\"J\n\nGetRequest\x12\x19\n\x08hash_key\x18\x01\
-    \x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.Val\
-    ueR\x07sortKey\"\xc4\x01\n\rInsertRequest\x12\x19\n\x08hash_key\x18\x01\
-    \x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.Val\
-    ueR\x07sortKey\x122\n\x06values\x18\x03\x20\x03(\x0b2\x1a.InsertRequest.\
-    ValuesEntryR\x06values\x1aA\n\x0bValuesEntry\x12\x10\n\x03key\x18\x01\
-    \x20\x01(\tR\x03key\x12\x1c\n\x05value\x18\x02\x20\x01(\x0b2\x06.ValueR\
-    \x05value:\x028\x01\"M\n\rDeleteRequest\x12\x19\n\x08hash_key\x18\x01\
-    \x20\x01(\tR\x07hashKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.Val\
-    ueR\x07sortKey\"3\n\x0eGetManyRequest\x12!\n\x05items\x18\x01\x20\x03(\
-    \x0b2\x0b.GetRequestR\x05items\"0\n\x0cBatchRequest\x12\x20\n\x05items\
-    \x18\x01\x20\x03(\x0b2\n.BatchItemR\x05items\"g\n\tBatchItem\x12(\n\x06i\
-    nsert\x18\x01\x20\x01(\x0b2\x0e.InsertRequestH\0R\x06insert\x12(\n\x06de\
-    lete\x18\x02\x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06deleteB\x06\n\x04ite\
-    m\"\x12\n\x10BeginTransaction\"\x13\n\x11CommitTransaction\"\x12\n\x10Ab\
-    ortTransaction\"7\n\x10SyncModelRequest\x12#\n\rschema_string\x18\x01\
-    \x20\x01(\tR\x0cschemaString\"\x14\n\x12DeleteTableRequestb\x06proto3\
+    \x18\t\x20\x01(\x0b2\x11.SyncModelRequestH\0R\tsyncModel\x122\n\ndrop_ta\
+    ble\x18\n\x20\x01(\x0b2\x11.DropTableRequestH\0R\tdropTable\x12*\n\x0etr\
+    ansaction_id\x18\x0b\x20\x01(\x04H\x01R\rtransactionId\x88\x01\x01\x12\
+    \x14\n\x05table\x18\x0c\x20\x01(\tR\x05tableB\x06\n\x04dataB\x11\n\x0f_t\
+    ransaction_id\"J\n\nGetRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\
+    \x07hashKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortK\
+    ey\"\xc4\x01\n\rInsertRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\
+    \x07hashKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortK\
+    ey\x122\n\x06values\x18\x03\x20\x03(\x0b2\x1a.InsertRequest.ValuesEntryR\
+    \x06values\x1aA\n\x0bValuesEntry\x12\x10\n\x03key\x18\x01\x20\x01(\tR\
+    \x03key\x12\x1c\n\x05value\x18\x02\x20\x01(\x0b2\x06.ValueR\x05value:\
+    \x028\x01\"M\n\rDeleteRequest\x12\x19\n\x08hash_key\x18\x01\x20\x01(\tR\
+    \x07hashKey\x12!\n\x08sort_key\x18\x02\x20\x01(\x0b2\x06.ValueR\x07sortK\
+    ey\"3\n\x0eGetManyRequest\x12!\n\x05items\x18\x01\x20\x03(\x0b2\x0b.GetR\
+    equestR\x05items\"0\n\x0cBatchRequest\x12\x20\n\x05items\x18\x01\x20\x03\
+    (\x0b2\n.BatchItemR\x05items\"g\n\tBatchItem\x12(\n\x06insert\x18\x01\
+    \x20\x01(\x0b2\x0e.InsertRequestH\0R\x06insert\x12(\n\x06delete\x18\x02\
+    \x20\x01(\x0b2\x0e.DeleteRequestH\0R\x06deleteB\x06\n\x04item\"\x12\n\
+    \x10BeginTransaction\"\x13\n\x11CommitTransaction\"\x12\n\x10AbortTransa\
+    ction\"7\n\x10SyncModelRequest\x12#\n\rschema_string\x18\x01\x20\x01(\tR\
+    \x0cschemaString\"\x12\n\x10DropTableRequestb\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -2473,7 +2473,7 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
             messages.push(CommitTransaction::generated_message_descriptor_data());
             messages.push(AbortTransaction::generated_message_descriptor_data());
             messages.push(SyncModelRequest::generated_message_descriptor_data());
-            messages.push(DeleteTableRequest::generated_message_descriptor_data());
+            messages.push(DropTableRequest::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(0);
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(
                 file_descriptor_proto(),

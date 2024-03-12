@@ -7,7 +7,7 @@ use common::partition::get_hash_key_target_partition;
 use common::value::Value;
 use protobuf::Message;
 use protos::{
-    AbortTransaction, BatchRequest, BeginTransaction, CommitTransaction, DeleteTableRequest,
+    AbortTransaction, BatchRequest, BeginTransaction, CommitTransaction, DropTableRequest,
     GetManyRequest, ProtoRequest, ProtoRequestData, ProtoResponse, ProtoResponseData,
     SyncModelRequest,
 };
@@ -425,12 +425,12 @@ impl ConnectionInner {
         let mut proto_request = ProtoRequest::new();
         proto_request.table = table_name;
 
-        proto_request.data = Some(ProtoRequestData::DeleteTable(DeleteTableRequest::new()));
+        proto_request.data = Some(ProtoRequestData::DropTable(DropTableRequest::new()));
 
         let proto_response = send_request(self.streams[&0].clone(), proto_request).await?;
 
         match proto_response.data.unwrap() {
-            ProtoResponseData::DeleteTable(_) => Ok(()),
+            ProtoResponseData::DropTable(_) => Ok(()),
             ProtoResponseData::ClientError(client_error) => {
                 Err(ConnectionError::Client(client_error.detail))
             }

@@ -12,7 +12,7 @@ message Response {
         BatchResponse batch = 5;
         TransactionResponse transaction = 6;
         SyncModelResponse model = 7;
-        DeleteTableResponse delete_table = 8;
+        DropTableResponse drop_table = 8;
         ClientError client_error = 9;
         ServerError server_error = 10;
     }
@@ -47,7 +47,7 @@ message TransactionResponse {
 
 message SyncModelResponse {}
 
-message DeleteTableResponse {}
+message DropTableResponse {}
 
 
 message ClientError {

@@ -13,7 +13,7 @@ message Request {
         CommitTransaction commit_transaction = 7;
         AbortTransaction abort_transaction = 8;
         SyncModelRequest sync_model = 9;
-        DeleteTableRequest delete_table = 10;
+        DropTableRequest drop_table = 10;
     }
     optional uint64 transaction_id = 11;
     string table = 12;
@@ -60,4 +60,4 @@ message SyncModelRequest {
     string schema_string = 1;
 }
 
-message DeleteTableRequest {}
+message DropTableRequest {}

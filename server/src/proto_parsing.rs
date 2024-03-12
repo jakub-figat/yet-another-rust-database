@@ -82,6 +82,8 @@ pub fn parse_command_from_request(request: ProtoRequest) -> Result<Command, Stri
         ProtoRequestData::BeginTransaction(_) => Ok(Command::BeginTransaction),
         ProtoRequestData::CommitTransaction(_) => Ok(Command::CommitTransaction),
         ProtoRequestData::AbortTransaction(_) => Ok(Command::AbortTransaction),
+        ProtoRequestData::SyncModel(sync_model_request) => ,
+        ProtoRequestData::DropTable(table_name) => _,
         _ => panic!("Invalid proto request data type"),
     }
 }

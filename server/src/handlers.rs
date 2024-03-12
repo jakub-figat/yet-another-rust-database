@@ -1,8 +1,9 @@
 use crate::proto_parsing::{parse_command_from_request, parse_request_from_bytes};
 use crate::thread_channels::Operation::{Delete, Get, Insert};
 use crate::thread_channels::{
-    send_transaction_aborted, send_transaction_begun, send_transaction_committed,
-    send_transaction_prepare, Command, Operation, OperationResponse, OperationSender, Response,
+    send_drop_table, send_sync_model, send_transaction_aborted, send_transaction_begun,
+    send_transaction_committed, send_transaction_prepare, Command, Operation, OperationResponse,
+    OperationSender, Response,
 };
 use crate::transaction_manager::TransactionManager;
 use common::partition::get_hash_key_target_partition;
@@ -15,7 +16,7 @@ use protos::{ProtoResponse, ProtoResponseData, ServerError};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
-use storage::table::Table;
+use storage::table::{drop_table, sync_model, Table};
 use storage::transaction::Transaction;
 use storage::validation::validate_values_against_schema;
 use storage::Row;
@@ -25,7 +26,7 @@ pub async fn handle_tcp_stream(
     partition: usize,
     num_of_threads: usize,
     mut senders: Vec<OperationSender>,
-    tables: Arc<HashMap<String, Mutex<Table>>>,
+    tables: Arc<Mutex<HashMap<String, Table>>>,
     transaction_manager: Arc<Mutex<TransactionManager>>,
 ) {
     tracing::info!("Accepting connection on thread {}", partition);
@@ -79,7 +80,7 @@ async fn handle_tcp_request(
     stream: &mut TcpStream,
     current_partition: usize,
     senders: &mut Vec<OperationSender>,
-    tables: Arc<HashMap<String, Mutex<Table>>>,
+    tables: Arc<Mutex<HashMap<String, Table>>>,
     transaction_manager: Arc<Mutex<TransactionManager>>,
 ) -> Result<ProtoResponse, HandlerError> {
     let request_size = stream
@@ -108,18 +109,17 @@ async fn handle_tcp_request(
     let proto_response = match command {
         Command::Single(operation, table_name) => {
             validate_hash_key_partition(&operation.hash_key(), current_partition, senders.len())?;
-            let mut table = tables
-                .get(&table_name)
+            let mut tables = tables.lock().await;
+            let table = tables
+                .get_mut(&table_name)
                 .ok_or(HandlerError::Client(format!(
                     "Table named '{}' not found",
                     table_name
-                )))?
-                .lock()
-                .await;
+                )))?;
 
             let operation_response = handle_operation(
                 operation,
-                &mut table,
+                table,
                 transaction_id,
                 transaction_manager.clone(),
             )
@@ -127,14 +127,13 @@ async fn handle_tcp_request(
             Response::Single(operation_response).to_proto_response()
         }
         Command::GetMany(operations, table_name) => {
-            let mut table = tables
-                .get(&table_name)
+            let mut tables = tables.lock().await;
+            let table = tables
+                .get_mut(&table_name)
                 .ok_or(HandlerError::Client(format!(
                     "Table named '{}' not found",
                     table_name
-                )))?
-                .lock()
-                .await;
+                )))?;
 
             let mut responses = Vec::with_capacity(operations.len());
             for operation in operations {
@@ -146,7 +145,7 @@ async fn handle_tcp_request(
                 responses.push(
                     handle_operation(
                         operation,
-                        &mut table,
+                        table,
                         transaction_id,
                         transaction_manager.clone(),
                     )
@@ -156,14 +155,13 @@ async fn handle_tcp_request(
             Response::GetMany(responses).to_proto_response()
         }
         Command::Batch(operations, table_name) => {
-            let mut table = tables
-                .get(&table_name)
+            let mut tables = tables.lock().await;
+            let table = tables
+                .get_mut(&table_name)
                 .ok_or(HandlerError::Client(format!(
                     "Table named '{}' not found",
                     table_name
-                )))?
-                .lock()
-                .await;
+                )))?;
 
             let mut responses = Vec::with_capacity(operations.len());
             for operation in operations {
@@ -175,7 +173,7 @@ async fn handle_tcp_request(
                 responses.push(
                     handle_operation(
                         operation,
-                        &mut table,
+                        table,
                         transaction_id,
                         transaction_manager.clone(),
                     )
@@ -228,6 +226,20 @@ async fn handle_tcp_request(
             send_transaction_aborted(transaction_id, senders, current_partition).await;
 
             Response::Transaction(transaction_id).to_proto_response()
+        }
+        Command::SyncModel(schema_string) => {
+            sync_model(schema_string.clone(), tables.clone())
+                .await
+                .map_err(|e| HandlerError::Client(e))?;
+            send_sync_model(schema_string, senders, current_partition).await;
+            Response::SyncModel.to_proto_response()
+        }
+        Command::DropTable(table_name) => {
+            drop_table(table_name.clone(), tables.clone())
+                .await
+                .map_err(|e| HandlerError::Client(e))?;
+            send_drop_table(table_name, senders, current_partition).await;
+            Response::DropTable.to_proto_response()
         }
     };
 

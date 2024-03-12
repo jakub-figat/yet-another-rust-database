@@ -67,9 +67,10 @@ impl Transaction {
         }
     }
 
-    pub async fn can_commit(&self, tables: Arc<HashMap<String, Mutex<Table>>>) -> bool {
+    pub async fn can_commit(&self, tables: Arc<Mutex<HashMap<String, Table>>>) -> bool {
+        let tables = tables.lock().await;
         for (table_name, affected_row_versions) in &self.affected_rows {
-            let memtable = &mut tables.get(table_name).unwrap().lock().await.memtable;
+            let memtable = &tables.get(table_name).unwrap().memtable;
 
             for (primary_key, version) in affected_row_versions {
                 match memtable.get(&primary_key) {
@@ -87,11 +88,12 @@ impl Transaction {
         true
     }
 
-    pub async fn commit(&mut self, tables: Arc<HashMap<String, Mutex<Table>>>) {
+    pub async fn commit(&mut self, tables: Arc<Mutex<HashMap<String, Table>>>) {
+        let mut tables = tables.lock().await;
         self.committed = true;
 
         for (table_name, operations) in &self.operations {
-            let memtable = &mut tables.get(table_name).unwrap().lock().await.memtable;
+            let memtable = &mut tables.get_mut(table_name).unwrap().memtable;
 
             for operation in operations {
                 match operation {

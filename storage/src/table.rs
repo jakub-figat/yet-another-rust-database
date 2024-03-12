@@ -1,9 +1,11 @@
 use self::ColumnType::*;
 use crate::Memtable;
+use futures::lock::Mutex;
 use monoio::fs::OpenOptions;
 use regex::Regex;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 static TABLE_SCHEMAS_FILE_PATH: &str = "/var/lib/yard/schemas";
 
@@ -21,7 +23,7 @@ impl Table {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TableSchema {
     pub name: String,
     pub columns: BTreeMap<String, Column>,
@@ -35,34 +37,35 @@ impl TableSchema {
         }
     }
 
-    pub fn from_string(schema_string: &str) -> TableSchema {
-        let (table_name, columns_string) = schema_string.split_once('>').unwrap();
+    pub fn from_string(schema_string: &str) -> Result<TableSchema, String> {
+        let (table_name, columns_string) = schema_string
+            .split_once('>')
+            .ok_or("Invalid schema string".to_string())?;
+        let mut columns = BTreeMap::new();
+        for column_string in columns_string.split(";") {
+            let (column_name, mut column_type_string) = column_string
+                .split_once(':')
+                .ok_or("Invalid schema string".to_string())?;
 
-        let columns: BTreeMap<String, Column> = columns_string
-            .split(';')
-            .map(|column_string| {
-                let (column_name, mut column_type_string) = column_string.split_once(':').unwrap();
+            let mut nullable = false;
+            if let Some((type_string, _)) = column_type_string.split_once('?') {
+                column_type_string = type_string;
+                nullable = true;
+            }
 
-                let mut nullable = false;
-                if let Some((type_string, _)) = column_type_string.split_once('?') {
-                    column_type_string = type_string;
-                    nullable = true;
-                }
+            columns.insert(
+                column_name.to_string(),
+                Column {
+                    column_type: ColumnType::from_string(column_type_string),
+                    nullable,
+                },
+            );
+        }
 
-                (
-                    column_name.to_string(),
-                    Column {
-                        column_type: ColumnType::from_string(column_type_string),
-                        nullable,
-                    },
-                )
-            })
-            .collect();
-
-        TableSchema {
+        Ok(TableSchema {
             name: table_name.to_string(),
             columns,
-        }
+        })
     }
 }
 
@@ -77,7 +80,7 @@ impl Display for TableSchema {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Column {
     pub column_type: ColumnType,
     pub nullable: bool,
@@ -103,7 +106,7 @@ impl Display for Column {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ColumnType {
     Varchar(usize),
     Int32,
@@ -202,7 +205,7 @@ pub async fn read_table_schemas() -> Result<Vec<TableSchema>, String> {
 
     Ok(schema_strings
         .iter()
-        .map(|schema_string| TableSchema::from_string(schema_string))
+        .map(|schema_string| TableSchema::from_string(schema_string).unwrap())
         .collect())
 }
 
@@ -227,4 +230,47 @@ pub async fn write_table_schemas_to_file(table_schemas: Vec<TableSchema>) -> Res
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+pub async fn sync_model(
+    schema_string: String,
+    tables: Arc<Mutex<HashMap<String, Table>>>,
+) -> Result<(), String> {
+    let table_schema = TableSchema::from_string(&schema_string)?;
+    let mut tables = tables.lock().await;
+    if tables.contains_key(&table_schema.name) {
+        return Err(format!("Table '{}' already exists", &table_schema.name));
+    }
+
+    tables.insert(
+        table_schema.name.clone(),
+        Table::new(Memtable::default(), table_schema.clone()),
+    );
+
+    let mut table_schemas = Vec::new();
+    for table in tables.values() {
+        table_schemas.push(table.table_schema.clone());
+    }
+    table_schemas.push(table_schema);
+    write_table_schemas_to_file(table_schemas).await?;
+
+    Ok(())
+}
+
+pub async fn drop_table(
+    table_name: String,
+    tables: Arc<Mutex<HashMap<String, Table>>>,
+) -> Result<(), String> {
+    let mut tables = tables.lock().await;
+    match tables.remove(&table_name) {
+        Some(_) => {
+            let table_schemas: Vec<_> = tables
+                .values()
+                .map(|table| table.table_schema.clone())
+                .collect();
+            write_table_schemas_to_file(table_schemas).await?;
+            Ok(())
+        }
+        None => Err(format!("Table '{}' already exists", &table_name)),
+    }
 }

@@ -3,8 +3,8 @@ use futures::channel::{mpsc, oneshot};
 use futures::SinkExt;
 use protos::util::{parse_message_field_from_value, parse_proto_from_value};
 use protos::{
-    BatchResponse, DeleteResponse, GetManyResponse, GetResponse, InsertResponse, ProtoResponse,
-    ProtoResponseData, TransactionResponse,
+    BatchResponse, DeleteResponse, DropTableResponse, GetManyResponse, GetResponse, InsertResponse,
+    ProtoResponse, ProtoResponseData, SyncModelResponse, TransactionResponse,
 };
 use std::collections::HashMap;
 use storage::Row;
@@ -14,6 +14,8 @@ pub enum ThreadMessage {
     TransactionPrepare(u64, oneshot::Sender<bool>),
     TransactionCommit(u64),
     TransactionAborted(u64),
+    SyncModel(String),
+    DropTable(String),
 }
 
 pub type OperationSender = mpsc::UnboundedSender<ThreadMessage>;
@@ -27,6 +29,8 @@ pub enum Command {
     BeginTransaction,
     CommitTransaction,
     AbortTransaction,
+    SyncModel(String),
+    DropTable(String),
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +56,8 @@ pub enum Response {
     GetMany(Vec<OperationResponse>),
     Batch(Vec<OperationResponse>),
     Transaction(u64),
+    SyncModel,
+    DropTable,
 }
 
 #[derive(Debug)]
@@ -108,6 +114,8 @@ impl Response {
                 transaction_response.transaction_id = transaction_id;
                 Some(ProtoResponseData::Transaction(transaction_response))
             }
+            Response::SyncModel => Some(ProtoResponseData::Model(SyncModelResponse::new())),
+            Response::DropTable => Some(ProtoResponseData::DropTable(DropTableResponse::new())),
         };
 
         proto_response.data = proto_response_data;
@@ -183,6 +191,38 @@ pub async fn send_transaction_aborted(
         }
         sender
             .send(ThreadMessage::TransactionAborted(transaction_id))
+            .await
+            .unwrap();
+    }
+}
+
+pub async fn send_sync_model(
+    table_schema: String,
+    senders: &mut Vec<OperationSender>,
+    current_partition: usize,
+) {
+    for (partition, sender) in senders.iter_mut().enumerate() {
+        if current_partition == partition {
+            continue;
+        }
+        sender
+            .send(ThreadMessage::SyncModel(table_schema.clone()))
+            .await
+            .unwrap();
+    }
+}
+
+pub async fn send_drop_table(
+    table_name: String,
+    senders: &mut Vec<OperationSender>,
+    current_partition: usize,
+) {
+    for (partition, sender) in senders.iter_mut().enumerate() {
+        if current_partition == partition {
+            continue;
+        }
+        sender
+            .send(ThreadMessage::DropTable(table_name.clone()))
             .await
             .unwrap();
     }

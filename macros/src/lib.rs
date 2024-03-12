@@ -180,7 +180,7 @@ fn proc_table_schema(fields: &Vec<Field>, table_name: String) -> TokenStream {
 
     let table_schema_string = table_schema.to_string();
     quote! {
-        TableSchema::from_string(#table_schema_string)
+        TableSchema::from_string(#table_schema_string).unwrap()
     }
 }
 

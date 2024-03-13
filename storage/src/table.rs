@@ -1,5 +1,5 @@
 use self::ColumnType::*;
-use crate::Memtable;
+use crate::{HASH_KEY_BYTE_SIZE, Memtable};
 use futures::lock::Mutex;
 use monoio::fs::OpenOptions;
 use regex::Regex;
@@ -81,7 +81,7 @@ impl TableSchema {
             .values()
             .map(|column| column.column_type.byte_size())
             .sum();
-        128 + self.sort_key_type.byte_size() + values_byte_size
+        HASH_KEY_BYTE_SIZE + self.sort_key_type.byte_size() + values_byte_size
     }
 }
 

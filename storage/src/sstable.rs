@@ -1,6 +1,6 @@
 use crate::table::{ColumnType, Table, TableSchema};
 use crate::util::millis_from_epoch;
-use crate::{Memtable, Row, HASH_KEY_MAX_SIZE};
+use crate::{Memtable, Row, HASH_KEY_BYTE_SIZE};
 use common::value::Value;
 use monoio::fs::{File, OpenOptions};
 use std::collections::HashMap;
@@ -166,7 +166,7 @@ fn encode_row(mut row: Row, table_schema: &TableSchema) -> Vec<u8> {
 
     let mut bytes = Vec::new();
 
-    let mut hash_key_bytes = BufWriter::new(vec![0u8; HASH_KEY_MAX_SIZE]);
+    let mut hash_key_bytes = BufWriter::new(vec![0u8; HASH_KEY_BYTE_SIZE]);
     hash_key_bytes.write_all(row.hash_key.as_bytes()).unwrap();
     bytes.append(hash_key_bytes.get_mut());
 
@@ -191,12 +191,12 @@ fn encode_row(mut row: Row, table_schema: &TableSchema) -> Vec<u8> {
 }
 
 fn decode_row(bytes: &Vec<u8>, table_schema: &TableSchema) -> Row {
-    let hash_key = String::from_utf8(bytes[..128].to_vec()).unwrap();
-    let mut offset = 128;
+    let hash_key = String::from_utf8(bytes[..HASH_KEY_BYTE_SIZE].to_vec()).unwrap();
+    let mut offset = HASH_KEY_BYTE_SIZE;
 
     let sort_key_size = table_schema.sort_key_type.byte_size();
     let sort_key = parse_value_from_bytes(
-        bytes[128..sort_key_size].to_vec(),
+        bytes[offset..sort_key_size].to_vec(),
         table_schema.sort_key_type.clone(),
     );
     offset += sort_key_size;

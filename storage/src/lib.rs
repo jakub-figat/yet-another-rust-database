@@ -1,4 +1,4 @@
-pub static HASH_KEY_MAX_SIZE: usize = 64;
+pub static HASH_KEY_BYTE_SIZE: usize = 64;
 
 mod memtable;
 mod row;

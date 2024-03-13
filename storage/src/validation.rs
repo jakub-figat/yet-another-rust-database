@@ -3,10 +3,12 @@ use common::value::Value;
 use std::collections::{HashMap, HashSet};
 
 pub fn validate_values_against_schema(
+    sort_key: &Value,
     values: &HashMap<String, Value>,
     table_schema: &TableSchema,
 ) -> Result<(), String> {
     let table_schema_columns: HashSet<_> = table_schema.columns.keys().collect();
+
     let values_columns: HashSet<_> = values.keys().collect();
     let column_diff: Vec<_> = table_schema_columns.difference(&values_columns).collect();
 
@@ -18,6 +20,17 @@ pub fn validate_values_against_schema(
     }
 
     let mut errors = Vec::new();
+    if let Value::Null = sort_key {
+        errors.push("'sort_key' cannot be null".to_string());
+    }
+    if !check_value_matches_column_type(sort_key, &table_schema.sort_key_type) {
+        errors.push(format!(
+            "'sort_key': expected '{}', got '{}'",
+            &table_schema.sort_key_type,
+            value_to_column_type(sort_key)
+        ));
+    }
+
     for (column_name, column) in &table_schema.columns {
         let value = values.get(column_name).unwrap();
         if let Value::Null = value {

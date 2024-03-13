@@ -99,7 +99,7 @@ async fn thread_main(
                     ThreadMessage::TransactionCommit(transaction_id) => {
                         let mut manager = transaction_manager.lock().await;
                         let mut transaction = manager.transactions.remove(&transaction_id).unwrap();
-                        transaction.commit(tables.clone()).await;
+                        transaction.commit(tables.clone(), partition).await;
                     }
                     ThreadMessage::TransactionAborted(transaction_id) => {
                         let mut manager = transaction_manager.lock().await;

@@ -1,5 +1,6 @@
+use crate::sstable::flush_memtable_to_sstable;
 use crate::table::Table;
-use crate::Row;
+use crate::{Memtable, Row};
 use futures::lock::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -88,18 +89,29 @@ impl Transaction {
         true
     }
 
-    pub async fn commit(&mut self, tables: Arc<Mutex<HashMap<String, Table>>>) {
+    pub async fn commit(&mut self, tables: Arc<Mutex<HashMap<String, Table>>>, partition: usize) {
         let mut tables = tables.lock().await;
         self.committed = true;
 
         for (table_name, operations) in &self.operations {
-            let memtable = &mut tables.get_mut(table_name).unwrap().memtable;
-
+            let table = tables.get_mut(table_name).unwrap();
             for operation in operations {
                 match operation {
-                    Operation::Insert(row) => memtable.insert(row.clone()),
+                    Operation::Insert(row) => {
+                        table.memtable.insert(row.clone());
+                        if table.memtable.max_size_reached() {
+                            let mut full_memtable = Memtable::default();
+                            std::mem::swap(&mut table.memtable, &mut full_memtable);
+
+                            monoio::spawn(flush_memtable_to_sstable(
+                                full_memtable,
+                                table.table_schema.clone(),
+                                partition,
+                            ));
+                        }
+                    }
                     Operation::Delete(primary_key) => {
-                        memtable.delete(primary_key);
+                        table.memtable.delete(primary_key);
                     }
                 }
             }

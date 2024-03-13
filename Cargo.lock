@@ -813,6 +813,7 @@ dependencies = [
  "monoio",
  "rand",
  "regex",
+ "tracing",
 ]
 
 [[package]]

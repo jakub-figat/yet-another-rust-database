@@ -5,7 +5,7 @@ use std::mem::size_of;
 use std::ptr::NonNull;
 
 pub static MEGABYTE: usize = usize::pow(2, 20);
-static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 64;
+static MEMTABLE_MAX_SIZE_MEGABYTES: usize = 32;
 
 type ListNode = NonNull<Node>;
 
@@ -53,7 +53,10 @@ impl Memtable {
             }
 
             if let Some(next_node) = (*current.as_ptr()).refs[0].clone() {
-                if primary_key == &(*next_node.as_ptr()).row.primary_key {
+                let node_dereferenced = &(*next_node.as_ptr());
+                if primary_key == &node_dereferenced.row.primary_key
+                    && !node_dereferenced.row.marked_for_deletion
+                {
                     return Some(&(*next_node.as_ptr()).row);
                 }
             }
@@ -70,6 +73,9 @@ impl Memtable {
             if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
                 if &row.primary_key == &(*next_node.as_ptr()).row.primary_key {
                     (*next_node.as_ptr()).row.values = row.values;
+                    (*next_node.as_ptr()).row.version += 1;
+                    (*next_node.as_ptr()).row.marked_for_deletion = false;
+
                     return;
                 }
             }
@@ -86,33 +92,27 @@ impl Memtable {
     }
 
     pub fn delete(&mut self, primary_key: &String) -> bool {
-        let update_vec = self.get_update_vec(primary_key, self.max_level);
+        let mut current = self.head;
 
         unsafe {
-            if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
-                let next_primary_key = &(*next_node.as_ptr()).row.primary_key;
-                if primary_key == next_primary_key {
-                    let node_level = (*next_node.as_ptr()).refs.len();
-                    for (level, placement_node) in
-                        update_vec.iter().rev().take(node_level).enumerate()
-                    {
-                        if &(*(*placement_node.as_ptr()).refs[level].unwrap().as_ptr())
-                            .row
-                            .primary_key
-                            != next_primary_key
-                        {
-                            break;
-                        }
-                        (*placement_node.as_ptr()).refs[level] = (*next_node.as_ptr()).refs[level];
+            for level in (0..self.max_level).rev() {
+                while let Some(next_node) = (*current.as_ptr()).refs[level] {
+                    if primary_key > &(*next_node.as_ptr()).row.primary_key {
+                        current = next_node;
+                    } else {
+                        break;
                     }
-                    let _ = Box::from_raw(next_node.as_ptr());
+                }
+            }
 
-                    self.memory_size -= (*next_node.as_ptr()).get_memory_size();
-                    self.size -= 1;
+            if let Some(next_node) = (*current.as_ptr()).refs[0].clone() {
+                if primary_key == &(*next_node.as_ptr()).row.primary_key {
+                    (*next_node.as_ptr()).row.marked_for_deletion = true;
                     return true;
                 }
             }
         }
+
         false
     }
 
@@ -151,6 +151,21 @@ impl Memtable {
         }
 
         level
+    }
+
+    pub fn to_sstable_rows(self) -> Vec<Row> {
+        let mut rows = Vec::with_capacity(self.size);
+
+        unsafe {
+            let mut current = (*self.head.as_ptr()).refs[0];
+            while let Some(current_node) = current {
+                let boxed_node = Box::from_raw(current_node.as_ptr());
+                current = boxed_node.refs[0];
+                rows.push(boxed_node.row);
+            }
+        }
+
+        rows
     }
 }
 

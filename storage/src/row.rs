@@ -12,6 +12,7 @@ pub struct Row {
     pub primary_key: String,
     pub values: HashMap<String, Value>,
     pub version: u32, // for MVCC transaction
+    pub marked_for_deletion: bool,
 }
 
 impl Row {
@@ -29,6 +30,7 @@ impl Row {
             primary_key,
             values,
             version: 1,
+            marked_for_deletion: false,
         }
     }
 }
@@ -53,6 +55,7 @@ impl Default for Row {
             primary_key: "".to_string(),
             values: HashMap::new(),
             version: 1,
+            marked_for_deletion: false,
         }
     }
 }

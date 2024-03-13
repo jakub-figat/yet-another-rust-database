@@ -16,10 +16,11 @@ use protos::{ProtoResponse, ProtoResponseData, ServerError};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
+use storage::sstable::flush_memtable_to_sstable;
 use storage::table::{drop_table, sync_model, Table};
 use storage::transaction::Transaction;
 use storage::validation::validate_values_against_schema;
-use storage::Row;
+use storage::{Memtable, Row};
 
 pub async fn handle_tcp_stream(
     mut stream: TcpStream,
@@ -109,77 +110,43 @@ async fn handle_tcp_request(
     let proto_response = match command {
         Command::Single(operation, table_name) => {
             validate_hash_key_partition(&operation.hash_key(), current_partition, senders.len())?;
-            let mut tables = tables.lock().await;
-            let table = tables
-                .get_mut(&table_name)
-                .ok_or(HandlerError::Client(format!(
-                    "Table named '{}' not found",
-                    table_name
-                )))?;
 
             let operation_response = handle_operation(
                 operation,
-                table,
+                table_name,
+                tables.clone(),
                 transaction_id,
                 transaction_manager.clone(),
+                current_partition,
+                senders.len(),
             )
             .await?;
             Response::Single(operation_response).to_proto_response()
         }
         Command::GetMany(operations, table_name) => {
-            let mut tables = tables.lock().await;
-            let table = tables
-                .get_mut(&table_name)
-                .ok_or(HandlerError::Client(format!(
-                    "Table named '{}' not found",
-                    table_name
-                )))?;
-
-            let mut responses = Vec::with_capacity(operations.len());
-            for operation in operations {
-                validate_hash_key_partition(
-                    &operation.hash_key(),
-                    current_partition,
-                    senders.len(),
-                )?;
-                responses.push(
-                    handle_operation(
-                        operation,
-                        table,
-                        transaction_id,
-                        transaction_manager.clone(),
-                    )
-                    .await?,
-                );
-            }
+            let responses = handle_operations(
+                operations,
+                table_name,
+                tables.clone(),
+                transaction_id,
+                transaction_manager.clone(),
+                current_partition,
+                senders.len(),
+            )
+            .await?;
             Response::GetMany(responses).to_proto_response()
         }
         Command::Batch(operations, table_name) => {
-            let mut tables = tables.lock().await;
-            let table = tables
-                .get_mut(&table_name)
-                .ok_or(HandlerError::Client(format!(
-                    "Table named '{}' not found",
-                    table_name
-                )))?;
-
-            let mut responses = Vec::with_capacity(operations.len());
-            for operation in operations {
-                validate_hash_key_partition(
-                    &operation.hash_key(),
-                    current_partition,
-                    senders.len(),
-                )?;
-                responses.push(
-                    handle_operation(
-                        operation,
-                        table,
-                        transaction_id,
-                        transaction_manager.clone(),
-                    )
-                    .await?,
-                );
-            }
+            let responses = handle_operations(
+                operations,
+                table_name,
+                tables.clone(),
+                transaction_id,
+                transaction_manager.clone(),
+                current_partition,
+                senders.len(),
+            )
+            .await?;
             Response::Batch(responses).to_proto_response()
         }
         Command::BeginTransaction => {
@@ -271,35 +238,109 @@ fn client_error_from_string(error: &str, partition: usize) -> HandlerError {
     HandlerError::Client(format!("Invalid request: {}", error))
 }
 
-pub async fn handle_operation(
+async fn handle_operation(
     operation: Operation,
-    table: &mut Table,
+    table_name: String,
+    tables: Arc<Mutex<HashMap<String, Table>>>,
     transaction_id: Option<u64>,
     transaction_manager: Arc<Mutex<TransactionManager>>,
+    current_partition: usize,
+    num_of_partitions: usize,
 ) -> Result<OperationResponse, HandlerError> {
     let mut manager = transaction_manager.lock().await;
-    let transaction = get_transaction_by_id(transaction_id, &mut manager)?;
+    let mut transaction = get_transaction_by_id(transaction_id, &mut manager)?;
+
+    execute_operation(
+        operation,
+        table_name,
+        tables.clone(),
+        &mut transaction,
+        current_partition,
+        num_of_partitions,
+    )
+    .await
+}
+
+async fn handle_operations(
+    operations: Vec<Operation>,
+    table_name: String,
+    tables: Arc<Mutex<HashMap<String, Table>>>,
+    transaction_id: Option<u64>,
+    transaction_manager: Arc<Mutex<TransactionManager>>,
+    current_partition: usize,
+    num_of_partitions: usize,
+) -> Result<Vec<OperationResponse>, HandlerError> {
+    let mut manager = transaction_manager.lock().await;
+    let mut transaction = get_transaction_by_id(transaction_id, &mut manager)?;
+
+    let mut responses = Vec::with_capacity(operations.len());
+
+    for operation in operations {
+        validate_hash_key_partition(&operation.hash_key(), current_partition, num_of_partitions)?;
+        responses.push(
+            execute_operation(
+                operation,
+                table_name.clone(),
+                tables.clone(),
+                &mut transaction,
+                current_partition,
+                num_of_partitions,
+            )
+            .await?,
+        );
+    }
+
+    Ok(responses)
+}
+
+async fn execute_operation(
+    operation: Operation,
+    table_name: String,
+    tables: Arc<Mutex<HashMap<String, Table>>>,
+    transaction: &mut Option<&mut Transaction>,
+    current_partition: usize,
+    num_of_partitions: usize,
+) -> Result<OperationResponse, HandlerError> {
+    let mut tables = tables.lock().await;
+    let table = tables
+        .get_mut(&table_name)
+        .ok_or(HandlerError::Client(format!(
+            "Table named '{}' not found",
+            table_name
+        )))?;
 
     match operation {
         Get(hash_key, sort_key) => {
             let primary_key = format!("{}:{}", hash_key, sort_key);
             let val = table.memtable.get(&primary_key).cloned();
 
-            if let Some(transaction) = transaction {
+            if let Some(transaction) = transaction.as_mut() {
                 transaction.get_for_update(val.as_ref(), table.table_schema.name.clone());
             }
 
             Ok(OperationResponse::Get(val))
         }
         Insert(hash_key, sort_key, values) => {
-            validate_values_against_schema(&values, &table.table_schema)
+            validate_values_against_schema(&sort_key, &values, &table.table_schema)
                 .map_err(|e| HandlerError::Client(e))?;
 
             let row = Row::new(hash_key, sort_key, values);
 
             match transaction {
                 Some(transaction) => transaction.insert(row, &table),
-                None => table.memtable.insert(row),
+                None => {
+                    table.memtable.insert(row);
+                    if table.memtable.max_size_reached() {
+                        let mut full_memtable = Memtable::default();
+                        std::mem::swap(&mut table.memtable, &mut full_memtable);
+
+                        monoio::spawn(flush_memtable_to_sstable(
+                            full_memtable,
+                            table.table_schema.clone(),
+                            current_partition,
+                        ));
+                    }
+                }
             }
 
             Ok(OperationResponse::Insert)

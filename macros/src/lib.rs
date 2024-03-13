@@ -29,7 +29,7 @@ pub fn derive_model(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let from_get_impl = proc_from_get_response(&sort_key, &fields);
     let insert_impl = proc_to_insert_request(&sort_key, &fields);
     let delete_impl = proc_to_delete_request(&sort_key);
-    let table_schema_impl = proc_table_schema(&fields, table_name.clone());
+    let table_schema_impl = proc_table_schema(&sort_key, &fields, table_name.clone());
 
     let expanded = quote! {
         impl Model for #name {
@@ -165,7 +165,7 @@ fn proc_to_delete_request(sort_key: &Field) -> TokenStream {
     }
 }
 
-fn proc_table_schema(fields: &Vec<Field>, table_name: String) -> TokenStream {
+fn proc_table_schema(sort_key: &Field, fields: &Vec<Field>, table_name: String) -> TokenStream {
     let columns: BTreeMap<_, _> = fields
         .into_iter()
         .map(|field| {
@@ -175,7 +175,12 @@ fn proc_table_schema(fields: &Vec<Field>, table_name: String) -> TokenStream {
         })
         .collect();
 
-    let mut table_schema = TableSchema::new(table_name);
+    let (sort_key_type, nullable) = field_to_column_type(sort_key);
+    if nullable {
+        panic!("Sort key cannot be Option<>");
+    }
+
+    let mut table_schema = TableSchema::new(table_name, sort_key_type);
     table_schema.columns = columns;
 
     let table_schema_string = table_schema.to_string();

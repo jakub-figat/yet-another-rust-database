@@ -17,6 +17,29 @@ pub enum Value {
     Null,
 }
 
+impl Value {
+    pub fn to_bytes(self) -> Vec<u8> {
+        match self {
+            Varchar(value) => value.into_bytes(),
+            Int32(value) => value.to_be_bytes().to_vec(),
+            Int64(value) => value.to_be_bytes().to_vec(),
+            Unsigned32(value) => value.to_be_bytes().to_vec(),
+            Unsigned64(value) => value.to_be_bytes().to_vec(),
+            Float32(value) => value.to_be_bytes().to_vec(),
+            Float64(value) => value.to_be_bytes().to_vec(),
+            Decimal(_value) => Vec::with_capacity(5), // TODO
+            Datetime(_value) => Vec::with_capacity(5), // TODO
+            Boolean(value) => {
+                if value {
+                    return Vec::from([1u8]);
+                }
+                Vec::from([0u8])
+            }
+            Null => Vec::with_capacity(0),
+        }
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {

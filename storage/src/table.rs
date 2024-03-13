@@ -5,6 +5,7 @@ use monoio::fs::OpenOptions;
 use regex::Regex;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Display, Formatter};
+use std::mem::size_of;
 use std::sync::Arc;
 
 static TABLE_SCHEMAS_FILE_PATH: &str = "/var/lib/yard/schemas";
@@ -26,13 +27,15 @@ impl Table {
 #[derive(Debug, Clone)]
 pub struct TableSchema {
     pub name: String,
+    pub sort_key_type: ColumnType,
     pub columns: BTreeMap<String, Column>,
 }
 
 impl TableSchema {
-    pub fn new(table_name: String) -> TableSchema {
+    pub fn new(table_name: String, sort_key_type: ColumnType) -> TableSchema {
         TableSchema {
             name: table_name,
+            sort_key_type,
             columns: BTreeMap::new(),
         }
     }
@@ -62,8 +65,12 @@ impl TableSchema {
             );
         }
 
+        let sort_key_column = columns
+            .remove("sort_key")
+            .ok_or("Invalid first column, should be 'sort_key'".to_string())?;
         Ok(TableSchema {
             name: table_name.to_string(),
+            sort_key_type: sort_key_column.column_type,
             columns,
         })
     }
@@ -71,11 +78,11 @@ impl TableSchema {
 
 impl Display for TableSchema {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let columns: Vec<_> = self
-            .columns
-            .iter()
-            .map(|(name, column)| format!("{}:{}", name, column.to_string()))
-            .collect();
+        let mut columns = Vec::new();
+        columns.push(format!("{}:{}", "sort_key", self.sort_key_type.to_string()));
+        for (name, column) in &self.columns {
+            format!("{}:{}", name, column.to_string());
+        }
         write!(f, "{}>{}", self.name, columns.join(";"))
     }
 }
@@ -161,6 +168,21 @@ impl ColumnType {
             "DATETIME" => Datetime,
             "BOOLEAN" => Boolean,
             _ => panic!("Invalid column type"),
+        }
+    }
+
+    pub fn byte_size(&self) -> usize {
+        match self {
+            Varchar(size) => size.clone(),
+            Int32 => size_of::<i32>(),
+            Int64 => size_of::<i64>(),
+            Unsigned32 => size_of::<u32>(),
+            Unsigned64 => size_of::<u64>(),
+            Float32 => size_of::<f32>(),
+            Float64 => size_of::<f64>(),
+            Decimal(num_of_digits, decimal_places) => num_of_digits + decimal_places,
+            Datetime => 100, // TODO
+            Boolean => size_of::<bool>(),
         }
     }
 }

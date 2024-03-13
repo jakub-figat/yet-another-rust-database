@@ -16,7 +16,7 @@ use protos::{ProtoResponse, ProtoResponseData, ServerError};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
-use storage::sstable::flush_memtable_to_sstable;
+use storage::sstable::{flush_memtable_to_sstable, read_row_from_sstable};
 use storage::table::{drop_table, sync_model, Table};
 use storage::transaction::Transaction;
 use storage::validation::validate_values_against_schema;
@@ -312,7 +312,17 @@ async fn execute_operation(
     match operation {
         Get(hash_key, sort_key) => {
             let primary_key = format!("{}:{}", hash_key, sort_key);
-            let val = table.memtable.get(&primary_key).cloned();
+            let mut val = table.memtable.get(&primary_key).cloned();
+
+            if val.is_none() {
+                val = read_row_from_sstable(
+                    &primary_key,
+                    &table,
+                    current_partition,
+                    num_of_partitions,
+                )
+                .await;
+            }
 
             if let Some(transaction) = transaction.as_mut() {
                 transaction.get_for_update(val.as_ref(), table.table_schema.name.clone());

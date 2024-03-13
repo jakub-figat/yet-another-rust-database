@@ -5,6 +5,7 @@ mod row;
 pub mod sstable;
 pub mod table;
 pub mod transaction;
+mod util;
 pub mod validation;
 
 pub use memtable::{Memtable, MEGABYTE};

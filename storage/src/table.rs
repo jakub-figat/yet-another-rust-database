@@ -74,6 +74,15 @@ impl TableSchema {
             columns,
         })
     }
+
+    pub fn row_byte_size(&self) -> usize {
+        let values_byte_size: usize = self
+            .columns
+            .values()
+            .map(|column| column.column_type.byte_size())
+            .sum();
+        128 + self.sort_key_type.byte_size() + values_byte_size
+    }
 }
 
 impl Display for TableSchema {

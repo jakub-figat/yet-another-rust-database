@@ -1,7 +1,10 @@
-use crate::table::TableSchema;
+use crate::table::{ColumnType, Table, TableSchema};
+use crate::util::millis_from_epoch;
 use crate::{Memtable, Row, HASH_KEY_MAX_SIZE};
-use monoio::fs::OpenOptions;
-use rand::{thread_rng, RngCore};
+use common::value::Value;
+use monoio::fs::{File, OpenOptions};
+use std::collections::HashMap;
+use std::fs::read_dir;
 use std::io::{BufWriter, Write};
 
 static SSTABLES_PATH: &str = "/var/lib/yard/sstables";
@@ -22,6 +25,7 @@ impl SSTableSegment {
     }
 
     pub async fn write_to_disk(self) -> Result<(), String> {
+        let num_of_rows = self.memtable_rows.len();
         let encoded_rows: Vec<_> = self
             .memtable_rows
             .into_iter()
@@ -29,13 +33,13 @@ impl SSTableSegment {
             .reduce(|current, next| current.into_iter().chain(next.into_iter()).collect())
             .unwrap();
 
-        let mut rng = thread_rng();
         let file_name = format!(
-            "{}/{}-{}-{}",
+            "{}/{}-{}-{}-{}",
             SSTABLES_PATH,
             self.table_schema.name,
             self.partition,
-            rng.next_u64()
+            num_of_rows,
+            millis_from_epoch()
         );
         let file = OpenOptions::new()
             .create(true)
@@ -51,18 +55,6 @@ impl SSTableSegment {
 
         Ok(())
     }
-
-    fn get_row_length(&self) -> usize {
-        let sort_key_size = self.table_schema.sort_key_type.byte_size();
-        let columns_size: usize = self
-            .table_schema
-            .columns
-            .iter()
-            .map(|(_, column)| column.column_type.byte_size())
-            .sum();
-
-        HASH_KEY_MAX_SIZE + sort_key_size + columns_size
-    }
 }
 
 pub async fn flush_memtable_to_sstable(
@@ -76,7 +68,102 @@ pub async fn flush_memtable_to_sstable(
     }
 }
 
+pub async fn read_row_from_sstable(
+    primary_key: &str,
+    table: &Table,
+    current_partition: usize,
+    num_of_partitions: usize,
+) -> Option<Row> {
+    let mut memtable_file_paths = get_sstables_filenames_with_metadata(
+        &table.table_schema.name,
+        current_partition,
+        num_of_partitions,
+    );
+    memtable_file_paths
+        .sort_by(|(_, _, timestamp1), (_, _, timestamp2)| timestamp2.cmp(timestamp1));
+
+    for (sstable_path, num_of_rows, _) in memtable_file_paths {
+        let file = OpenOptions::new()
+            .read(true)
+            .open(sstable_path)
+            .await
+            .unwrap();
+
+        if let Some(row) =
+            binary_search_row_in_file(primary_key, file, num_of_rows, &table.table_schema).await
+        {
+            return Some(row);
+        }
+    }
+
+    None
+}
+
+async fn binary_search_row_in_file(
+    primary_key: &str,
+    file: File,
+    num_of_rows: usize,
+    table_schema: &TableSchema,
+) -> Option<Row> {
+    let mut left_row_number = 0;
+    let mut right_row_number = num_of_rows - 1;
+    let mut row_bytes = vec![0u8; table_schema.row_byte_size()];
+    while left_row_number <= right_row_number {
+        let current_row_number = (left_row_number + right_row_number) / 2;
+        row_bytes = file
+            .read_exact_at(
+                row_bytes,
+                (current_row_number * table_schema.row_byte_size()) as u64,
+            )
+            .await
+            .1;
+        let current_row = decode_row(&row_bytes, table_schema);
+
+        if primary_key > current_row.primary_key.as_str() {
+            left_row_number = current_row_number + 1;
+        } else if primary_key < current_row.primary_key.as_str() {
+            right_row_number = current_row_number - 1;
+        } else {
+            return Some(current_row);
+        }
+    }
+
+    None
+}
+
+fn get_sstables_filenames_with_metadata(
+    table_name: &str,
+    current_partition: usize,
+    num_of_partitions: usize,
+) -> Vec<(String, usize, u128)> {
+    read_dir(SSTABLES_PATH)
+        .unwrap()
+        .filter_map(|memtable_path| {
+            let file_name = memtable_path
+                .unwrap()
+                .file_name()
+                .to_str()
+                .unwrap()
+                .to_string();
+            let split_result: Vec<_> = file_name.split("-").collect();
+            let file_table_name = split_result[0];
+            let file_partition = split_result[1].parse::<usize>().unwrap();
+            let num_of_rows = split_result[2].parse::<usize>().unwrap();
+            let file_timestamp = split_result[3].parse::<u128>().unwrap();
+
+            if table_name == file_table_name
+                && current_partition == (file_partition % num_of_partitions)
+            {
+                return Some((file_name, num_of_rows, file_timestamp));
+            }
+            None
+        })
+        .collect()
+}
+
 fn encode_row(mut row: Row, table_schema: &TableSchema) -> Vec<u8> {
+    // row byte components order: hash_key, sort_key, values, timestamp, tombstone marker
+
     let mut bytes = Vec::new();
 
     let mut hash_key_bytes = BufWriter::new(vec![0u8; HASH_KEY_MAX_SIZE]);
@@ -91,7 +178,59 @@ fn encode_row(mut row: Row, table_schema: &TableSchema) -> Vec<u8> {
         bytes.append(&mut value_bytes);
     }
 
+    let mut timestamp_bytes = row.timestamp.to_be_bytes().to_vec();
+    bytes.append(&mut timestamp_bytes);
+
+    if row.marked_for_deletion {
+        bytes.push(1);
+    } else {
+        bytes.push(0);
+    }
+
     bytes
+}
+
+fn decode_row(bytes: &Vec<u8>, table_schema: &TableSchema) -> Row {
+    let hash_key = String::from_utf8(bytes[..128].to_vec()).unwrap();
+    let mut offset = 128;
+
+    let sort_key_size = table_schema.sort_key_type.byte_size();
+    let sort_key = parse_value_from_bytes(
+        bytes[128..sort_key_size].to_vec(),
+        table_schema.sort_key_type.clone(),
+    );
+    offset += sort_key_size;
+
+    let mut values = HashMap::new();
+    for (column_name, column) in &table_schema.columns {
+        let column_size = column.column_type.byte_size();
+        let value = parse_value_from_bytes(
+            bytes[offset..column_size].to_vec(),
+            column.column_type.clone(),
+        );
+        offset += column_size;
+
+        values.insert(column_name.clone(), value);
+    }
+
+    Row::new_from_sstable(hash_key, sort_key, values)
+}
+
+fn parse_value_from_bytes(bytes: Vec<u8>, column_type: ColumnType) -> Value {
+    match column_type {
+        ColumnType::Varchar(_) => Value::Varchar(String::from_utf8(bytes).unwrap()),
+        ColumnType::Int32 => Value::Int32(i32::from_be_bytes(bytes.try_into().unwrap())),
+        ColumnType::Int64 => Value::Int64(i64::from_be_bytes(bytes.try_into().unwrap())),
+        ColumnType::Unsigned32 => Value::Unsigned32(u32::from_be_bytes(bytes.try_into().unwrap())),
+        ColumnType::Unsigned64 => Value::Unsigned64(u64::from_be_bytes(bytes.try_into().unwrap())),
+        ColumnType::Float32 => Value::Float32(f32::from_be_bytes(bytes.try_into().unwrap())),
+        ColumnType::Float64 => Value::Float64(f64::from_be_bytes(bytes.try_into().unwrap())),
+        ColumnType::Boolean => {
+            let value = bytes[0];
+            Value::Boolean(value == 1)
+        }
+        _ => panic!("Currently decimal and datetime are not supported"),
+    }
 }
 
 // TODO: hash key max length: 64

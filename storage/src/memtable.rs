@@ -1,3 +1,4 @@
+use crate::util::millis_from_epoch;
 use crate::Row;
 use get_size::GetSize;
 use rand::{thread_rng, Rng};
@@ -75,6 +76,7 @@ impl Memtable {
                     (*next_node.as_ptr()).row.values = row.values;
                     (*next_node.as_ptr()).row.version += 1;
                     (*next_node.as_ptr()).row.marked_for_deletion = false;
+                    (*next_node.as_ptr()).row.timestamp = millis_from_epoch();
 
                     return;
                 }
@@ -108,6 +110,7 @@ impl Memtable {
             if let Some(next_node) = (*current.as_ptr()).refs[0].clone() {
                 if primary_key == &(*next_node.as_ptr()).row.primary_key {
                     (*next_node.as_ptr()).row.marked_for_deletion = true;
+                    (*next_node.as_ptr()).row.timestamp = millis_from_epoch();
                     return true;
                 }
             }

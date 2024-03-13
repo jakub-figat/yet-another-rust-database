@@ -1,3 +1,4 @@
+use crate::util::millis_from_epoch;
 use common::value::Value;
 use common::value::Value::Varchar;
 use get_size::GetSize;
@@ -12,17 +13,14 @@ pub struct Row {
     pub primary_key: String,
     pub values: HashMap<String, Value>,
     pub version: u32, // for MVCC transaction
+    pub timestamp: u128,
     pub marked_for_deletion: bool,
 }
 
 impl Row {
     pub fn new(hash_key: String, sort_key: Value, values: HashMap<String, Value>) -> Row {
         let sort_key_string = sort_key.to_string();
-        let mut primary_key = String::with_capacity(hash_key.len() + sort_key_string.len() + 1);
-
-        primary_key.push_str(&hash_key);
-        primary_key.push_str(":");
-        primary_key.push_str(&sort_key_string);
+        let primary_key = format!("{}:{}", hash_key, sort_key_string);
 
         Row {
             hash_key,
@@ -30,6 +28,26 @@ impl Row {
             primary_key,
             values,
             version: 1,
+            timestamp: millis_from_epoch(),
+            marked_for_deletion: false,
+        }
+    }
+
+    pub fn new_from_sstable(
+        hash_key: String,
+        sort_key: Value,
+        values: HashMap<String, Value>,
+    ) -> Row {
+        let sort_key_string = sort_key.to_string();
+        let primary_key = format!("{}:{}", hash_key, sort_key_string);
+
+        Row {
+            hash_key,
+            sort_key,
+            primary_key,
+            values,
+            version: 0,
+            timestamp: 0,
             marked_for_deletion: false,
         }
     }
@@ -55,6 +73,7 @@ impl Default for Row {
             primary_key: "".to_string(),
             values: HashMap::new(),
             version: 1,
+            timestamp: millis_from_epoch(),
             marked_for_deletion: false,
         }
     }

@@ -52,6 +52,7 @@ impl SSTableSegment {
             .await
             .0
             .map_err(|e| e.to_string())?;
+        file.sync_all().await.unwrap();
 
         Ok(())
     }

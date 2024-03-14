@@ -347,3 +347,5 @@ pub async fn drop_table(
         None => Err(format!("Table '{}' already exists", &table_name)),
     }
 }
+
+// TODO: update drop tables to delete relevant sstables

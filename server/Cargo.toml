@@ -7,7 +7,7 @@ edition = "2021"
 storage = { path = "../storage" }
 protos = { path = "../protos" }
 common = { path = "../common" }
-monoio = { version = "0.2.1", features = ["iouring", "sync"] }
+monoio = { version = "0.2.1", features = ["iouring", "sync", "signal"] }
 rand = "0.8.5"
 protobuf = "3.3.0"
 futures = "0.3.30"

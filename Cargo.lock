@@ -130,6 +130,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctrlc"
+version = "3.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b467862cc8610ca6fc9a1532d7777cee0804e678ab45410897b9396495994a0b"
+dependencies = [
+ "nix 0.27.1",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "either"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -436,6 +446,7 @@ checksum = "3c7d2b656fb51eca3f9ef301f68435c789a6e08d200be1dc887a4c8b8d4b70fe"
 dependencies = [
  "auto-const-array",
  "bytes",
+ "ctrlc",
  "flume",
  "fxhash",
  "io-uring",
@@ -443,7 +454,7 @@ dependencies = [
  "memchr",
  "mio",
  "monoio-macros",
- "nix",
+ "nix 0.26.4",
  "pin-project-lite",
  "socket2",
  "threadpool",
@@ -487,6 +498,17 @@ dependencies = [
  "libc",
  "memoffset",
  "pin-utils",
+]
+
+[[package]]
+name = "nix"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
+dependencies = [
+ "bitflags 2.4.2",
+ "cfg-if",
+ "libc",
 ]
 
 [[package]]

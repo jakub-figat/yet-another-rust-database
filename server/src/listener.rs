@@ -5,11 +5,13 @@ use futures::channel::mpsc;
 use futures::lock::Mutex;
 use futures::StreamExt;
 use monoio::net::TcpListener;
+use monoio::utils::CtrlC;
 use monoio::FusionDriver;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
 use storage::commit_log::{replay_commit_logs, CommitLog};
+use storage::sstable::flush_memtable_to_sstable;
 use storage::table::{drop_table, read_table_schemas, sync_model, Table};
 use storage::Memtable;
 use tracing_subscriber::layer::SubscriberExt;
@@ -55,6 +57,7 @@ async fn thread_main(
     senders: Vec<OperationSender>,
     mut receiver: OperationReceiver,
 ) {
+    let mut ctrl_c = CtrlC::new().unwrap();
     let table_schemas = read_table_schemas().await.unwrap();
     let mut tables = HashMap::new();
     for table_schema in table_schemas {
@@ -115,6 +118,16 @@ async fn thread_main(
                     ThreadMessage::DropTable(table_name) => {
                         drop_table(table_name, tables.clone()).await.unwrap();
                     }
+                }
+            }
+            _ = &mut ctrl_c => {
+                tracing::info!("Shutting down database, flushing memtables...");
+                let mut tables = tables.lock().await;
+                for (_, table) in tables.iter_mut() {
+                    let mut memtable = Memtable::default();
+                    std::mem::swap(&mut table.memtable, &mut memtable);
+
+                    flush_memtable_to_sstable(memtable, table.commit_log.clone(), table.table_schema.clone(), partition).await;
                 }
             }
         }

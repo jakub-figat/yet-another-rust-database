@@ -127,7 +127,12 @@ async fn thread_main(
                     let mut memtable = Memtable::default();
                     std::mem::swap(&mut table.memtable, &mut memtable);
 
-                    flush_memtable_to_sstable(memtable, table.commit_log.clone(), table.table_schema.clone(), partition).await;
+                    flush_memtable_to_sstable(
+                        memtable,
+                        table.commit_log.clone(),
+                        table.table_schema.clone(),
+                        partition)
+                        .await;
                 }
             }
         }

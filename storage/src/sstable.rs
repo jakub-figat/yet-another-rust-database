@@ -31,10 +31,6 @@ impl SSTableSegment {
             .into_iter()
             .map(|row| {
                 let mut row_bytes = encode_row(&row, &self.table_schema);
-
-                let mut timestamp_bytes = row.timestamp.to_be_bytes().to_vec();
-                row_bytes.append(&mut timestamp_bytes);
-
                 if row.marked_for_deletion {
                     row_bytes.push(1);
                 } else {

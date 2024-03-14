@@ -66,17 +66,26 @@ impl Memtable {
         None
     }
 
-    pub fn insert(&mut self, row: Row) {
+    pub fn insert(&mut self, row: Row, from_commit_log: bool) {
         let new_level = self.get_random_level();
         let update_vec = self.get_update_vec(&row.primary_key, new_level);
 
         unsafe {
             if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
                 if &row.primary_key == &(*next_node.as_ptr()).row.primary_key {
+                    if from_commit_log {
+                        if (*next_node.as_ptr()).row.timestamp >= row.timestamp {
+                            return;
+                        } else {
+                            (*next_node.as_ptr()).row.timestamp = row.timestamp;
+                        }
+                    } else {
+                        (*next_node.as_ptr()).row.timestamp = millis_from_epoch();
+                        (*next_node.as_ptr()).row.version += 1;
+                    }
+
                     (*next_node.as_ptr()).row.values = row.values;
-                    (*next_node.as_ptr()).row.version += 1;
                     (*next_node.as_ptr()).row.marked_for_deletion = false;
-                    (*next_node.as_ptr()).row.timestamp = millis_from_epoch();
 
                     return;
                 }
@@ -93,7 +102,7 @@ impl Memtable {
         self.size += 1;
     }
 
-    pub fn delete(&mut self, primary_key: &String) -> bool {
+    pub fn delete(&mut self, primary_key: &String, timestamp: Option<u128>) -> bool {
         let mut current = self.head;
 
         unsafe {
@@ -109,8 +118,16 @@ impl Memtable {
 
             if let Some(next_node) = (*current.as_ptr()).refs[0].clone() {
                 if primary_key == &(*next_node.as_ptr()).row.primary_key {
+                    if let Some(timestamp) = timestamp {
+                        if (*next_node.as_ptr()).row.timestamp >= timestamp {
+                            return false;
+                        } else {
+                            (*next_node.as_ptr()).row.timestamp = timestamp;
+                        }
+                    } else {
+                        (*next_node.as_ptr()).row.timestamp = millis_from_epoch();
+                    }
                     (*next_node.as_ptr()).row.marked_for_deletion = true;
-                    (*next_node.as_ptr()).row.timestamp = millis_from_epoch();
                     return true;
                 }
             }

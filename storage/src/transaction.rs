@@ -98,7 +98,7 @@ impl Transaction {
             for operation in operations {
                 match operation {
                     Operation::Insert(row) => {
-                        table.memtable.insert(row.clone());
+                        table.memtable.insert(row.clone(), false);
                         if table.memtable.max_size_reached() {
                             let mut full_memtable = Memtable::default();
                             std::mem::swap(&mut table.memtable, &mut full_memtable);
@@ -112,7 +112,7 @@ impl Transaction {
                         }
                     }
                     Operation::Delete(primary_key) => {
-                        table.memtable.delete(primary_key);
+                        table.memtable.delete(primary_key, None);
                     }
                 }
             }

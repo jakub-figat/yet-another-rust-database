@@ -14,8 +14,6 @@ pub fn millis_from_epoch() -> u128 {
 }
 
 pub fn encode_row(row: &Row, table_schema: &TableSchema) -> Vec<u8> {
-    // row byte components order: hash_key, sort_key, values, timestamp, tombstone marker
-
     let mut bytes = Vec::new();
 
     let mut hash_key_bytes = BufWriter::new(vec![0u8; HASH_KEY_BYTE_SIZE]);
@@ -30,10 +28,13 @@ pub fn encode_row(row: &Row, table_schema: &TableSchema) -> Vec<u8> {
         bytes.append(&mut value_bytes);
     }
 
+    let mut timestamp_bytes = row.timestamp.to_be_bytes().to_vec();
+    bytes.append(&mut timestamp_bytes);
+
     bytes
 }
 
-pub fn decode_row(bytes: &[u8], table_schema: &TableSchema, with_metadata: bool) -> Row {
+pub fn decode_row(bytes: &[u8], table_schema: &TableSchema, with_tombstone: bool) -> Row {
     let hash_key = String::from_utf8(bytes[..HASH_KEY_BYTE_SIZE].to_vec()).unwrap();
     let mut offset = HASH_KEY_BYTE_SIZE;
 
@@ -56,18 +57,18 @@ pub fn decode_row(bytes: &[u8], table_schema: &TableSchema, with_metadata: bool)
         values.insert(column_name.clone(), value);
     }
 
-    let mut row = Row::new_from_sstable(hash_key, sort_key, values);
+    let timestamp_size = size_of::<u128>();
+    let timestamp = u128::from_be_bytes(
+        bytes[offset..offset + timestamp_size]
+            .to_vec()
+            .try_into()
+            .unwrap(),
+    );
+    offset += timestamp_size;
 
-    if with_metadata {
-        let timestamp_size = size_of::<u128>();
-        row.timestamp = u128::from_be_bytes(
-            bytes[offset..offset + timestamp_size]
-                .to_vec()
-                .try_into()
-                .unwrap(),
-        );
-        offset += timestamp_size;
+    let mut row = Row::new_with_timestamp(hash_key, sort_key, values, timestamp);
 
+    if with_tombstone {
         if bytes[offset] == 1u8 {
             row.marked_for_deletion = true;
         }

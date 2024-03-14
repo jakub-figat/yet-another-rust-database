@@ -344,7 +344,7 @@ async fn execute_operation(
                         commit_log.write_insert(&row).await;
                     }
 
-                    table.memtable.insert(row);
+                    table.memtable.insert(row, false);
                     if table.memtable.max_size_reached() {
                         table.flush_memtable_to_disk(current_partition).await;
                     }
@@ -358,7 +358,7 @@ async fn execute_operation(
 
             let val = match transaction {
                 Some(transaction) => transaction.delete(primary_key, &table),
-                None => table.memtable.delete(&primary_key),
+                None => table.memtable.delete(&primary_key, None),
             };
 
             Ok(OperationResponse::Delete(val))

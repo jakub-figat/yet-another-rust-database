@@ -6,6 +6,7 @@ use futures::lock::Mutex;
 use monoio::fs::{File, OpenOptions};
 use monoio::time::sleep;
 use std::fs::read_dir;
+use std::mem::size_of;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -68,8 +69,13 @@ impl CommitLog {
         let mut operation_bytes = Vec::new();
         operation_bytes.push(2u8);
 
+        let mut timestamp_bytes = millis_from_epoch().to_be_bytes().to_vec();
+        operation_bytes.append(&mut timestamp_bytes);
+
         let mut primary_key_bytes = primary_key.as_bytes().to_vec();
         operation_bytes.append(&mut primary_key_bytes);
+
+        operation_bytes.push(b'\n');
 
         let bytes_len = operation_bytes.len() as u64;
         self.file
@@ -127,11 +133,19 @@ pub async fn replay_commit_logs(
             match operation_bytes[0] {
                 1 => {
                     let row = decode_row(&operation_bytes[1..], table_schema, false);
-                    memtable.insert(row);
+                    memtable.insert(row, true);
                 }
                 2 => {
-                    let primary_key = String::from_utf8(operation_bytes[1..].to_vec()).unwrap();
-                    memtable.delete(&primary_key);
+                    let timestamp_size = size_of::<u128>();
+                    let timestamp = u128::from_be_bytes(
+                        operation_bytes[1..1 + timestamp_size]
+                            .to_vec()
+                            .try_into()
+                            .unwrap(),
+                    );
+                    let primary_key =
+                        String::from_utf8(operation_bytes[1 + timestamp_size..].to_vec()).unwrap();
+                    memtable.delete(&primary_key, Some(timestamp));
                 }
                 _ => panic!("Invalid operation code"),
             }

@@ -33,10 +33,11 @@ impl Row {
         }
     }
 
-    pub fn new_from_sstable(
+    pub fn new_with_timestamp(
         hash_key: String,
         sort_key: Value,
         values: HashMap<String, Value>,
+        timestamp: u128,
     ) -> Row {
         let sort_key_string = sort_key.to_string();
         let primary_key = format!("{}:{}", hash_key, sort_key_string);
@@ -47,7 +48,7 @@ impl Row {
             primary_key,
             values,
             version: 0,
-            timestamp: 0,
+            timestamp,
             marked_for_deletion: false,
         }
     }

@@ -16,11 +16,11 @@ use protos::{ProtoResponse, ProtoResponseData, ServerError};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
-use storage::sstable::{flush_memtable_to_sstable, read_row_from_sstable};
+use storage::sstable::read_row_from_sstable;
 use storage::table::{drop_table, sync_model, Table};
 use storage::transaction::Transaction;
 use storage::validation::validate_values_against_schema;
-use storage::{Memtable, Row};
+use storage::Row;
 
 pub async fn handle_tcp_stream(
     mut stream: TcpStream,
@@ -195,7 +195,7 @@ async fn handle_tcp_request(
             Response::Transaction(transaction_id).to_proto_response()
         }
         Command::SyncModel(schema_string) => {
-            sync_model(schema_string.clone(), tables.clone())
+            sync_model(schema_string.clone(), tables.clone(), current_partition)
                 .await
                 .map_err(|e| HandlerError::Client(e))?;
             send_sync_model(schema_string, senders, current_partition).await;
@@ -339,16 +339,14 @@ async fn execute_operation(
             match transaction {
                 Some(transaction) => transaction.insert(row, &table),
                 None => {
+                    {
+                        let mut commit_log = table.commit_log.lock().await;
+                        commit_log.write_insert(&row).await;
+                    }
+
                     table.memtable.insert(row);
                     if table.memtable.max_size_reached() {
-                        let mut full_memtable = Memtable::default();
-                        std::mem::swap(&mut table.memtable, &mut full_memtable);
-
-                        monoio::spawn(flush_memtable_to_sstable(
-                            full_memtable,
-                            table.table_schema.clone(),
-                            current_partition,
-                        ));
+                        table.flush_memtable_to_disk(current_partition).await;
                     }
                 }
             }

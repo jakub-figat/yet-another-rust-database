@@ -105,6 +105,7 @@ impl Transaction {
 
                             monoio::spawn(flush_memtable_to_sstable(
                                 full_memtable,
+                                table.commit_log.clone(),
                                 table.table_schema.clone(),
                                 partition,
                             ));

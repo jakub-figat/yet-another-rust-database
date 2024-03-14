@@ -1,5 +1,6 @@
 pub static HASH_KEY_BYTE_SIZE: usize = 64;
 
+pub mod commit_log;
 mod memtable;
 mod row;
 pub mod sstable;

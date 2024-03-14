@@ -1,5 +1,7 @@
 use self::ColumnType::*;
-use crate::{HASH_KEY_BYTE_SIZE, Memtable};
+use crate::commit_log::{periodically_sync_commit_log, CommitLog};
+use crate::sstable::flush_memtable_to_sstable;
+use crate::{Memtable, HASH_KEY_BYTE_SIZE};
 use futures::lock::Mutex;
 use monoio::fs::OpenOptions;
 use regex::Regex;
@@ -7,20 +9,55 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Display, Formatter};
 use std::mem::size_of;
 use std::sync::Arc;
+use std::time::Duration;
 
 static TABLE_SCHEMAS_FILE_PATH: &str = "/var/lib/yard/schemas";
 
 pub struct Table {
     pub memtable: Memtable,
+    pub commit_log: Arc<Mutex<CommitLog>>,
     pub table_schema: TableSchema,
 }
 
 impl Table {
-    pub fn new(memtable: Memtable, table_schema: TableSchema) -> Table {
+    pub fn new(memtable: Memtable, commit_log: CommitLog, table_schema: TableSchema) -> Table {
+        let commit_log = Arc::new(Mutex::new(commit_log));
+        monoio::spawn(periodically_sync_commit_log(
+            commit_log.clone(),
+            Duration::from_secs(10),
+        ));
+
         Table {
             memtable,
+            commit_log,
             table_schema,
         }
+    }
+
+    pub async fn flush_memtable_to_disk(&mut self, partition: usize) {
+        {
+            let mut commit_log = self.commit_log.lock().await;
+            commit_log.closed = true;
+        }
+
+        let mut full_memtable = Memtable::default();
+        let mut old_commit_log = Arc::new(Mutex::new(
+            CommitLog::open_new(&self.table_schema, partition).await,
+        ));
+
+        std::mem::swap(&mut self.commit_log, &mut old_commit_log);
+        std::mem::swap(&mut self.memtable, &mut full_memtable);
+
+        monoio::spawn(periodically_sync_commit_log(
+            self.commit_log.clone(),
+            Duration::from_secs(10),
+        ));
+        monoio::spawn(flush_memtable_to_sstable(
+            full_memtable,
+            old_commit_log,
+            self.table_schema.clone(),
+            partition,
+        ));
     }
 }
 
@@ -266,6 +303,7 @@ pub async fn write_table_schemas_to_file(table_schemas: Vec<TableSchema>) -> Res
 pub async fn sync_model(
     schema_string: String,
     tables: Arc<Mutex<HashMap<String, Table>>>,
+    partition: usize,
 ) -> Result<(), String> {
     let table_schema = TableSchema::from_string(&schema_string)?;
     let mut tables = tables.lock().await;
@@ -275,7 +313,11 @@ pub async fn sync_model(
 
     tables.insert(
         table_schema.name.clone(),
-        Table::new(Memtable::default(), table_schema.clone()),
+        Table::new(
+            Memtable::default(),
+            CommitLog::open_new(&table_schema, partition).await,
+            table_schema.clone(),
+        ),
     );
 
     let mut table_schemas = Vec::new();

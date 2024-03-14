@@ -9,6 +9,7 @@ use monoio::FusionDriver;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
+use storage::commit_log::{replay_commit_logs, CommitLog};
 use storage::table::{drop_table, read_table_schemas, sync_model, Table};
 use storage::Memtable;
 use tracing_subscriber::layer::SubscriberExt;
@@ -55,17 +56,20 @@ async fn thread_main(
     mut receiver: OperationReceiver,
 ) {
     let table_schemas = read_table_schemas().await.unwrap();
-    let tables: Arc<Mutex<HashMap<String, Table>>> = Arc::new(Mutex::new(
-        table_schemas
-            .into_iter()
-            .map(|table_schema| {
-                (
-                    table_schema.name.clone(),
-                    Table::new(Memtable::default(), table_schema),
-                )
-            })
-            .collect(),
-    ));
+    let mut tables = HashMap::new();
+    for table_schema in table_schemas {
+        replay_commit_logs(&table_schema, partition, senders.len()).await;
+
+        let memtable = Memtable::default();
+        let commit_log = CommitLog::open_new(&table_schema, partition).await;
+
+        tables.insert(
+            table_schema.name.clone(),
+            Table::new(memtable, commit_log, table_schema),
+        );
+    }
+
+    let tables = Arc::new(Mutex::new(tables));
     let transaction_manager = Arc::new(Mutex::new(TransactionManager::new()));
 
     let tcp_port = TCP_STARTING_PORT + partition;
@@ -106,7 +110,7 @@ async fn thread_main(
                         manager.remove(transaction_id);
                     }
                     ThreadMessage::SyncModel(schema_string) => {
-                        sync_model(schema_string, tables.clone()).await.unwrap();
+                        sync_model(schema_string, tables.clone(), partition).await.unwrap();
                     }
                     ThreadMessage::DropTable(table_name) => {
                         drop_table(table_name, tables.clone()).await.unwrap();

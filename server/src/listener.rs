@@ -116,7 +116,7 @@ async fn thread_main(
                         sync_model(schema_string, tables.clone(), partition).await.unwrap();
                     }
                     ThreadMessage::DropTable(table_name) => {
-                        drop_table(table_name, tables.clone()).await.unwrap();
+                        drop_table(table_name, tables.clone(), partition, senders.len()).await.unwrap();
                     }
                 }
             }

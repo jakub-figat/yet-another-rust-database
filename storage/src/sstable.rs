@@ -7,7 +7,7 @@ use monoio::fs::{File, OpenOptions};
 use std::fs::read_dir;
 use std::sync::Arc;
 
-static SSTABLES_PATH: &str = "/var/lib/yard/sstables";
+pub static SSTABLES_PATH: &str = "/var/lib/yard/sstables";
 
 pub struct SSTableSegment {
     table_schema: TableSchema,
@@ -145,7 +145,7 @@ async fn binary_search_row_in_file(
     None
 }
 
-fn get_sstables_filenames_with_metadata(
+pub fn get_sstables_filenames_with_metadata(
     table_name: &str,
     current_partition: usize,
     num_of_partitions: usize,

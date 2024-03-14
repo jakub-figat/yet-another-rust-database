@@ -11,8 +11,10 @@ For learning purposes.
 - Transactions
 - Concurrent batch requests from client
 - Table schema and validation
-
-### Work in progress:
 - SStables
 - Commit log
+
+### Work in progress:
+- Tests
 - Compaction
+

@@ -1,15 +1,7 @@
 for 0.1.0 "alpha":
-1. nulls/variable length data types
-2. table schema
-3. sstables read/write
-4. compaction
-5. bloom filters
-
-for client:
-timeouts and retries?
-
-later:
-1. tests
-2. writing to commit ahead log
-3. auth
-4. batching?
+1. some tests
+2. compaction
+3. check file i/o, do something about blocking file /io (removing)
+4. nulls, datetimes, decimals
+5. readme
+6. dockerfile

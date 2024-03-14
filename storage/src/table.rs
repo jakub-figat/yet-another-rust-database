@@ -1,6 +1,8 @@
 use self::ColumnType::*;
 use crate::commit_log::{periodically_sync_commit_log, CommitLog};
-use crate::sstable::flush_memtable_to_sstable;
+use crate::sstable::{
+    flush_memtable_to_sstable, get_sstables_filenames_with_metadata, SSTABLES_PATH,
+};
 use crate::{Memtable, HASH_KEY_BYTE_SIZE};
 use futures::lock::Mutex;
 use monoio::fs::OpenOptions;
@@ -333,6 +335,8 @@ pub async fn sync_model(
 pub async fn drop_table(
     table_name: String,
     tables: Arc<Mutex<HashMap<String, Table>>>,
+    partition: usize,
+    num_of_partitions: usize,
 ) -> Result<(), String> {
     let mut tables = tables.lock().await;
     match tables.remove(&table_name) {
@@ -341,11 +345,19 @@ pub async fn drop_table(
                 .values()
                 .map(|table| table.table_schema.clone())
                 .collect();
+
             write_table_schemas_to_file(table_schemas).await?;
+            drop_table_sstables(&table_name, partition, num_of_partitions);
+
             Ok(())
         }
-        None => Err(format!("Table '{}' already exists", &table_name)),
+        None => Err(format!("Table '{}' does not exist", &table_name)),
     }
 }
 
-// TODO: update drop tables to delete relevant sstables
+fn drop_table_sstables(table_name: &str, partition: usize, num_of_partitions: usize) {
+    let filenames = get_sstables_filenames_with_metadata(table_name, partition, num_of_partitions);
+    for (filename, _, _) in filenames {
+        std::fs::remove_file(format!("{}/{}", SSTABLES_PATH, filename)).unwrap();
+    }
+}

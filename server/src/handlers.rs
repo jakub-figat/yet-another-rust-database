@@ -202,9 +202,14 @@ async fn handle_tcp_request(
             Response::SyncModel.to_proto_response()
         }
         Command::DropTable(table_name) => {
-            drop_table(table_name.clone(), tables.clone())
-                .await
-                .map_err(|e| HandlerError::Client(e))?;
+            drop_table(
+                table_name.clone(),
+                tables.clone(),
+                current_partition,
+                senders.len(),
+            )
+            .await
+            .map_err(|e| HandlerError::Client(e))?;
             send_drop_table(table_name, senders, current_partition).await;
             Response::DropTable.to_proto_response()
         }

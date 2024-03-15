@@ -5,6 +5,8 @@ use crate::{Memtable, Row, MEGABYTE};
 use futures::lock::Mutex;
 use monoio::fs::{File, OpenOptions};
 use monoio::time::sleep;
+use rand::Rng;
+use std::collections::HashSet;
 use std::fs::read_dir;
 use std::mem::size_of;
 use std::sync::Arc;
@@ -17,11 +19,15 @@ pub struct CommitLog {
     file_path: String,
     pub file_offset: u64,
     table_schema: TableSchema,
+    pub partition: usize,
     pub closed: bool,
 }
 
 impl CommitLog {
-    pub async fn open_new(table_schema: &TableSchema, partition: usize) -> CommitLog {
+    pub async fn open_new(table_schema: &TableSchema, partitions: &HashSet<usize>) -> CommitLog {
+        let mut rng = rand::thread_rng();
+        let partition = rng.gen_range(0usize..partitions.iter().max().unwrap().clone());
+
         let file_path = format!(
             "{}/{}-{}-{}",
             COMMIT_LOG_SEGMENTS_FILE_PATH,
@@ -42,6 +48,7 @@ impl CommitLog {
             file_path,
             file_offset: 0,
             table_schema: table_schema.clone(),
+            partition,
             closed: false,
         }
     }
@@ -115,10 +122,10 @@ pub async fn periodically_sync_commit_log(commit_log: Arc<Mutex<CommitLog>>, int
 
 pub async fn replay_commit_logs(
     table_schema: &TableSchema,
-    partition: usize,
-    num_of_partitions: usize,
+    partitions: &HashSet<usize>,
+    total_number_of_partitions: usize,
 ) {
-    let commit_logs = open_for_startup(table_schema, partition, num_of_partitions).await;
+    let commit_logs = open_for_startup(table_schema, partitions).await;
     let mut buffer = Vec::with_capacity(24 * MEGABYTE);
 
     for mut commit_log in commit_logs {
@@ -150,11 +157,12 @@ pub async fn replay_commit_logs(
                 _ => panic!("Invalid operation code"),
             }
         }
+
         monoio::spawn(flush_memtable_to_sstable(
             memtable,
             Arc::new(Mutex::new(commit_log)),
             table_schema.clone(),
-            partition,
+            total_number_of_partitions,
         ));
 
         new_buffer.clear();
@@ -162,19 +170,16 @@ pub async fn replay_commit_logs(
     }
 }
 
-// TODO: add timestamp to commit log operation
-
 async fn open_for_startup(
     table_schema: &TableSchema,
-    partition: usize,
-    num_of_partitions: usize,
+    partitions: &HashSet<usize>,
 ) -> Vec<CommitLog> {
     let mut commit_logs = Vec::new();
     let mut commit_log_files =
-        get_commit_logs_filenames_with_metadata(&table_schema.name, partition, num_of_partitions);
-    commit_log_files.sort_by(|(_, timestamp1), (_, timestamp2)| timestamp1.cmp(timestamp2));
+        get_commit_logs_filenames_with_metadata(&table_schema.name, partitions);
+    commit_log_files.sort_by(|(_, _, timestamp1), (_, _, timestamp2)| timestamp1.cmp(timestamp2));
 
-    for (filename, _) in commit_log_files {
+    for (filename, file_partition, _) in commit_log_files {
         let file_path = format!("{}/{}", COMMIT_LOG_SEGMENTS_FILE_PATH, filename);
         let file = OpenOptions::new()
             .read(true)
@@ -185,6 +190,7 @@ async fn open_for_startup(
             file: Some(file),
             file_path,
             file_offset: 0,
+            partition: file_partition,
             table_schema: table_schema.clone(),
             closed: false,
         });
@@ -195,9 +201,8 @@ async fn open_for_startup(
 
 fn get_commit_logs_filenames_with_metadata(
     table_name: &str,
-    current_partition: usize,
-    num_of_partitions: usize,
-) -> Vec<(String, u128)> {
+    partitions: &HashSet<usize>,
+) -> Vec<(String, usize, u128)> {
     read_dir(COMMIT_LOG_SEGMENTS_FILE_PATH)
         .unwrap()
         .filter_map(|commit_log_path| {
@@ -212,10 +217,8 @@ fn get_commit_logs_filenames_with_metadata(
             let file_partition = split_result[1].parse::<usize>().unwrap();
             let file_timestamp = split_result[2].parse::<u128>().unwrap();
 
-            if table_name == file_table_name
-                && current_partition == (file_partition % num_of_partitions)
-            {
-                return Some((file_name, file_timestamp));
+            if table_name == file_table_name && partitions.contains(&file_partition) {
+                return Some((file_name, file_partition, file_timestamp));
             }
             None
         })

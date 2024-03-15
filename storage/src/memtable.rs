@@ -1,7 +1,9 @@
 use crate::util::millis_from_epoch;
 use crate::Row;
+use common::partition::get_hash_key_target_partition;
 use get_size::GetSize;
 use rand::{thread_rng, Rng};
+use std::collections::HashMap;
 use std::mem::size_of;
 use std::ptr::NonNull;
 
@@ -173,19 +175,27 @@ impl Memtable {
         level
     }
 
-    pub fn to_sstable_rows(self) -> Vec<Row> {
+    pub fn to_sstable_rows(self, num_of_partitions: usize) -> (Vec<Row>, HashMap<usize, usize>) {
+        let mut partition_index = HashMap::new();
         let mut rows = Vec::with_capacity(self.size);
 
+        let mut row_number = 0usize;
         unsafe {
             let mut current = (*self.head.as_ptr()).refs[0];
             while let Some(current_node) = current {
                 let boxed_node = Box::from_raw(current_node.as_ptr());
                 current = boxed_node.refs[0];
+
+                let row_partition =
+                    get_hash_key_target_partition(&boxed_node.row.hash_key, num_of_partitions);
+                partition_index.entry(row_partition).or_insert(row_number);
+
                 rows.push(boxed_node.row);
+                row_number += 1;
             }
         }
 
-        rows
+        (rows, partition_index)
     }
 }
 

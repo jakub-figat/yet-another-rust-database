@@ -1,13 +1,11 @@
 use self::ColumnType::*;
 use crate::commit_log::{periodically_sync_commit_log, CommitLog};
-use crate::sstable::{
-    flush_memtable_to_sstable, get_sstables_filenames_with_metadata, SSTABLES_PATH,
-};
+use crate::sstable::{flush_memtable_to_sstable, get_sstables_metadata, SSTABLES_PATH};
 use crate::{Memtable, HASH_KEY_BYTE_SIZE};
 use futures::lock::Mutex;
 use monoio::fs::OpenOptions;
 use regex::Regex;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::mem::size_of;
 use std::sync::Arc;
@@ -36,7 +34,11 @@ impl Table {
         }
     }
 
-    pub async fn flush_memtable_to_disk(&mut self, partition: usize) {
+    pub async fn flush_memtable_to_disk(
+        &mut self,
+        partitions: &HashSet<usize>,
+        total_number_of_partitions: usize,
+    ) {
         {
             let mut commit_log = self.commit_log.lock().await;
             commit_log.closed = true;
@@ -44,7 +46,7 @@ impl Table {
 
         let mut full_memtable = Memtable::default();
         let mut old_commit_log = Arc::new(Mutex::new(
-            CommitLog::open_new(&self.table_schema, partition).await,
+            CommitLog::open_new(&self.table_schema, partitions).await,
         ));
 
         std::mem::swap(&mut self.commit_log, &mut old_commit_log);
@@ -58,7 +60,7 @@ impl Table {
             full_memtable,
             old_commit_log,
             self.table_schema.clone(),
-            partition,
+            total_number_of_partitions,
         ));
     }
 }
@@ -305,7 +307,7 @@ pub async fn write_table_schemas_to_file(table_schemas: Vec<TableSchema>) -> Res
 pub async fn sync_model(
     schema_string: String,
     tables: Arc<Mutex<HashMap<String, Table>>>,
-    partition: usize,
+    partitions: &HashSet<usize>,
 ) -> Result<(), String> {
     let table_schema = TableSchema::from_string(&schema_string)?;
     let mut tables = tables.lock().await;
@@ -317,7 +319,7 @@ pub async fn sync_model(
         table_schema.name.clone(),
         Table::new(
             Memtable::default(),
-            CommitLog::open_new(&table_schema, partition).await,
+            CommitLog::open_new(&table_schema, partitions).await,
             table_schema.clone(),
         ),
     );
@@ -335,8 +337,6 @@ pub async fn sync_model(
 pub async fn drop_table(
     table_name: String,
     tables: Arc<Mutex<HashMap<String, Table>>>,
-    partition: usize,
-    num_of_partitions: usize,
 ) -> Result<(), String> {
     let mut tables = tables.lock().await;
     match tables.remove(&table_name) {
@@ -347,7 +347,7 @@ pub async fn drop_table(
                 .collect();
 
             write_table_schemas_to_file(table_schemas).await?;
-            drop_table_sstables(&table_name, partition, num_of_partitions);
+            drop_table_sstables(&table_name);
 
             Ok(())
         }
@@ -355,9 +355,9 @@ pub async fn drop_table(
     }
 }
 
-fn drop_table_sstables(table_name: &str, partition: usize, num_of_partitions: usize) {
-    let filenames = get_sstables_filenames_with_metadata(table_name, partition, num_of_partitions);
-    for (filename, _, _) in filenames {
-        std::fs::remove_file(format!("{}/{}", SSTABLES_PATH, filename)).unwrap();
+fn drop_table_sstables(table_name: &str) {
+    let filenames = get_sstables_metadata(table_name);
+    for sstable_metadata in filenames {
+        std::fs::remove_file(sstable_metadata.file_path).unwrap();
     }
 }

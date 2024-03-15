@@ -89,7 +89,11 @@ impl Transaction {
         true
     }
 
-    pub async fn commit(&mut self, tables: Arc<Mutex<HashMap<String, Table>>>, partition: usize) {
+    pub async fn commit(
+        &mut self,
+        tables: Arc<Mutex<HashMap<String, Table>>>,
+        total_number_of_partitions: usize,
+    ) {
         let mut tables = tables.lock().await;
         self.committed = true;
 
@@ -107,7 +111,7 @@ impl Transaction {
                                 full_memtable,
                                 table.commit_log.clone(),
                                 table.table_schema.clone(),
-                                partition,
+                                total_number_of_partitions,
                             ));
                         }
                     }

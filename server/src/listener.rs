@@ -1,3 +1,4 @@
+use crate::context::ThreadContext;
 use crate::handlers::handle_tcp_stream;
 use crate::thread_channels::{OperationReceiver, OperationSender, ThreadMessage};
 use crate::transaction_manager::TransactionManager;
@@ -7,7 +8,8 @@ use futures::StreamExt;
 use monoio::net::TcpListener;
 use monoio::utils::CtrlC;
 use monoio::FusionDriver;
-use std::collections::HashMap;
+use rand::Rng;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
 use storage::commit_log::{replay_commit_logs, CommitLog};
@@ -35,16 +37,32 @@ pub fn run_listener_threads(num_of_threads: usize) {
         receivers.push(Some(command_receiver));
     }
 
-    for partition in 0..num_of_threads {
+    let num_of_partitions = 1000usize;
+    let mut partitions_per_thread = HashMap::new();
+    for partition in 0..num_of_partitions {
+        partitions_per_thread
+            .entry(partition % num_of_threads)
+            .or_insert(HashSet::new())
+            .insert(partition);
+    }
+
+    for thread_num in 0..num_of_threads {
         let senders = senders.clone();
-        let receiver = receivers[partition].take().unwrap();
+        let receiver = receivers[thread_num].take().unwrap();
+        let thread_partitions = partitions_per_thread.remove(&thread_num).unwrap();
+        let thread_context = ThreadContext {
+            partitions: thread_partitions,
+            total_number_of_partitions: num_of_threads,
+            current_thread_number: thread_num,
+            number_of_threads: num_of_threads,
+        };
 
         thread::spawn(move || {
             let mut runtime = monoio::RuntimeBuilder::<FusionDriver>::new()
                 .build()
                 .unwrap();
 
-            runtime.block_on(thread_main(partition, num_of_threads, senders, receiver));
+            runtime.block_on(thread_main(thread_context, senders, receiver));
         });
     }
 
@@ -52,8 +70,7 @@ pub fn run_listener_threads(num_of_threads: usize) {
 }
 
 async fn thread_main(
-    partition: usize,
-    num_of_threads: usize,
+    thread_context: ThreadContext,
     senders: Vec<OperationSender>,
     mut receiver: OperationReceiver,
 ) {
@@ -61,10 +78,15 @@ async fn thread_main(
     let table_schemas = read_table_schemas().await.unwrap();
     let mut tables = HashMap::new();
     for table_schema in table_schemas {
-        replay_commit_logs(&table_schema, partition, senders.len()).await;
-
+        replay_commit_logs(
+            &table_schema,
+            &thread_context.partitions,
+            thread_context.total_number_of_partitions,
+        )
+        .await;
         let memtable = Memtable::default();
-        let commit_log = CommitLog::open_new(&table_schema, partition).await;
+
+        let commit_log = CommitLog::open_new(&table_schema, &thread_context.partitions).await;
 
         tables.insert(
             table_schema.name.clone(),
@@ -75,17 +97,20 @@ async fn thread_main(
     let tables = Arc::new(Mutex::new(tables));
     let transaction_manager = Arc::new(Mutex::new(TransactionManager::new()));
 
-    let tcp_port = TCP_STARTING_PORT + partition;
+    let tcp_port = TCP_STARTING_PORT + thread_context.current_thread_number;
     let tcp_listener = TcpListener::bind(format!("0.0.0.0:{}", tcp_port.to_string())).unwrap();
-    tracing::info!("Listening on port {} on thread {}", tcp_port, partition);
+    tracing::info!(
+        "Listening on port {} on thread {}",
+        tcp_port,
+        thread_context.current_thread_number
+    );
 
     loop {
         monoio::select! {
             stream = tcp_listener.accept() => {
                 monoio::spawn(handle_tcp_stream(
                     stream.unwrap().0,
-                    partition,
-                    num_of_threads,
+                    thread_context.clone(),
                     senders.clone(),
                     tables.clone(),
                     transaction_manager.clone()
@@ -106,17 +131,17 @@ async fn thread_main(
                     ThreadMessage::TransactionCommit(transaction_id) => {
                         let mut manager = transaction_manager.lock().await;
                         let mut transaction = manager.transactions.remove(&transaction_id).unwrap();
-                        transaction.commit(tables.clone(), partition).await;
+                        transaction.commit(tables.clone(), thread_context.total_number_of_partitions).await;
                     }
                     ThreadMessage::TransactionAborted(transaction_id) => {
                         let mut manager = transaction_manager.lock().await;
                         manager.remove(transaction_id);
                     }
                     ThreadMessage::SyncModel(schema_string) => {
-                        sync_model(schema_string, tables.clone(), partition).await.unwrap();
+                        sync_model(schema_string, tables.clone(), &thread_context.partitions).await.unwrap();
                     }
                     ThreadMessage::DropTable(table_name) => {
-                        drop_table(table_name, tables.clone(), partition, senders.len()).await.unwrap();
+                        drop_table(table_name, tables.clone()).await.unwrap();
                     }
                 }
             }
@@ -131,9 +156,11 @@ async fn thread_main(
                         memtable,
                         table.commit_log.clone(),
                         table.table_schema.clone(),
-                        partition)
-                        .await;
+                        thread_context.total_number_of_partitions
+                    )
+                    .await;
                 }
+                break;
             }
         }
     }

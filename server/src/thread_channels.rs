@@ -126,10 +126,10 @@ impl Response {
 pub async fn send_transaction_begun(
     transaction_id: u64,
     senders: &mut Vec<OperationSender>,
-    current_partition: usize,
+    current_thread_number: usize,
 ) {
     for (partition, sender) in senders.iter_mut().enumerate() {
-        if current_partition == partition {
+        if current_thread_number == partition {
             continue;
         }
         sender
@@ -142,10 +142,10 @@ pub async fn send_transaction_begun(
 pub async fn send_transaction_prepare(
     transaction_id: u64,
     senders: &mut Vec<OperationSender>,
-    current_partition: usize,
+    current_thread_number: usize,
 ) -> bool {
     for (partition, sender) in senders.iter_mut().enumerate() {
-        if current_partition == partition {
+        if current_thread_number == partition {
             continue;
         }
         let (prepare_sender, receiver) = oneshot::channel();
@@ -167,10 +167,10 @@ pub async fn send_transaction_prepare(
 pub async fn send_transaction_committed(
     transaction_id: u64,
     senders: &mut Vec<OperationSender>,
-    current_partition: usize,
+    current_thread_number: usize,
 ) {
     for (partition, sender) in senders.iter_mut().enumerate() {
-        if current_partition == partition {
+        if current_thread_number == partition {
             continue;
         }
         sender
@@ -183,10 +183,10 @@ pub async fn send_transaction_committed(
 pub async fn send_transaction_aborted(
     transaction_id: u64,
     senders: &mut Vec<OperationSender>,
-    current_partition: usize,
+    current_thread_number: usize,
 ) {
     for (partition, sender) in senders.iter_mut().enumerate() {
-        if current_partition == partition {
+        if current_thread_number == partition {
             continue;
         }
         sender
@@ -199,10 +199,10 @@ pub async fn send_transaction_aborted(
 pub async fn send_sync_model(
     table_schema: String,
     senders: &mut Vec<OperationSender>,
-    current_partition: usize,
+    current_thread_number: usize,
 ) {
     for (partition, sender) in senders.iter_mut().enumerate() {
-        if current_partition == partition {
+        if current_thread_number == partition {
             continue;
         }
         sender
@@ -215,10 +215,10 @@ pub async fn send_sync_model(
 pub async fn send_drop_table(
     table_name: String,
     senders: &mut Vec<OperationSender>,
-    current_partition: usize,
+    current_thread_number: usize,
 ) {
     for (partition, sender) in senders.iter_mut().enumerate() {
-        if current_partition == partition {
+        if current_thread_number == partition {
             continue;
         }
         sender

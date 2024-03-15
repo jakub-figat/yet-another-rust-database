@@ -16,5 +16,3 @@ For learning purposes.
 
 ### Work in progress:
 - Tests
-- Compaction
-

@@ -1,11 +1,12 @@
 use crate::commit_log::CommitLog;
 use crate::table::{Table, TableSchema};
 use crate::util::{decode_row, encode_row, millis_from_epoch};
-use crate::{Memtable, Row};
+use crate::{Memtable, Row, MEGABYTE};
 use futures::lock::Mutex;
 use monoio::fs::{File, OpenOptions};
 use std::collections::HashMap;
 use std::fs::read_dir;
+use std::os::unix::fs::MetadataExt;
 use std::sync::Arc;
 
 pub static SSTABLES_PATH: &str = "/var/lib/yard/sstables";
@@ -42,16 +43,7 @@ impl SSTableSegment {
         let encoded_rows: Vec<_> = self
             .memtable_rows
             .into_iter()
-            .map(|row| {
-                let mut row_bytes = encode_row(&row, &self.table_schema);
-                if row.marked_for_deletion {
-                    row_bytes.push(1);
-                } else {
-                    row_bytes.push(0);
-                }
-
-                row_bytes
-            })
+            .map(|row| encode_row(&row, &self.table_schema))
             .reduce(|current, next| current.into_iter().chain(next.into_iter()).collect())
             .unwrap();
 
@@ -92,6 +84,7 @@ pub struct SSTableMetadata {
     pub partition_index_size: usize,
     pub number_of_rows: usize,
     pub timestamp: u128,
+    pub file_size: u64,
 }
 
 pub async fn flush_memtable_to_sstable(
@@ -100,7 +93,7 @@ pub async fn flush_memtable_to_sstable(
     table_schema: TableSchema,
     total_number_of_partitions: usize,
 ) {
-    let (rows, partition_index) = memtable.to_sstable_rows(total_number_of_partitions);
+    let (rows, partition_index) = memtable.to_sstable_rows(total_number_of_partitions, false);
     let sstable_segment = SSTableSegment::new(table_schema, rows, partition_index);
     if let Err(error) = sstable_segment.write_to_disk().await {
         tracing::error!("Failed to flush memtable to sstable: {}", error);
@@ -186,7 +179,7 @@ async fn binary_search_row_in_file(
             )
             .await
             .1;
-        let current_row = decode_row(&row_bytes, table_schema, true);
+        let current_row = decode_row(&row_bytes, table_schema);
 
         if primary_key > current_row.primary_key.as_str() {
             left_row_number = current_row_number + 1;
@@ -205,8 +198,11 @@ pub fn get_sstables_metadata(table_name: &str) -> Vec<SSTableMetadata> {
         .unwrap()
         .filter_map(|memtable_path| {
             let memtable_path = memtable_path.unwrap();
+
             let file_path = memtable_path.path().to_str().unwrap().to_string();
+            let file_size = memtable_path.metadata().unwrap().size();
             let file_name = memtable_path.file_name().to_str().unwrap().to_string();
+
             let split_result: Vec<_> = file_name.split("-").collect();
             let file_table_name = split_result[0];
             let partition_index_size = split_result[1].parse::<usize>().unwrap();
@@ -220,6 +216,7 @@ pub fn get_sstables_metadata(table_name: &str) -> Vec<SSTableMetadata> {
                     partition_index_size,
                     number_of_rows,
                     timestamp,
+                    file_size,
                 });
             }
             None
@@ -227,4 +224,91 @@ pub fn get_sstables_metadata(table_name: &str) -> Vec<SSTableMetadata> {
         .collect()
 }
 
-// TODO: hash key max length
+pub async fn compact_sstables(table_schema: &TableSchema, total_number_of_partitions: usize) {
+    // size tiered compaction
+    let bucket_low = 0.5;
+    let bucket_high = 1.5;
+    let bucket_size_range = 4..=32;
+    let sstable_min_size = (50 * MEGABYTE) as f64;
+
+    let mut sstables_metadatas = get_sstables_metadata(&table_schema.name);
+    sstables_metadatas
+        .sort_by(|metadata1, metadata2| metadata2.file_size.cmp(&metadata1.file_size));
+
+    let mut buckets = Vec::new();
+    'outer: for sstable_metadata in sstables_metadatas {
+        let sstable_size = sstable_metadata.file_size as f64;
+        for bucket in buckets.iter_mut() {
+            let bucket_average_size = get_bucket_average_size(&bucket);
+            let bucket_range =
+                (bucket_low * bucket_average_size)..(bucket_high * bucket_average_size);
+            if bucket_range.contains(&sstable_size)
+                || (sstable_size < sstable_min_size && bucket_average_size < sstable_min_size)
+            {
+                bucket.push(sstable_metadata);
+                continue 'outer;
+            }
+        }
+
+        buckets.push(vec![sstable_metadata]);
+    }
+
+    for bucket in buckets {
+        if bucket_size_range.contains(&bucket.len()) {
+            compact_bucket(bucket, table_schema, total_number_of_partitions).await;
+        }
+    }
+}
+
+fn get_bucket_average_size(bucket: &Vec<SSTableMetadata>) -> f64 {
+    let bucket_total_size: u64 = bucket.iter().map(|metadata| metadata.file_size).sum();
+    bucket_total_size as f64 / bucket.len() as f64
+}
+
+async fn compact_bucket(
+    bucket: Vec<SSTableMetadata>,
+    table_schema: &TableSchema,
+    total_number_of_partitions: usize,
+) {
+    let mut memtable = Memtable::default();
+
+    for sstable_metadata in bucket.iter() {
+        let file = OpenOptions::new()
+            .read(true)
+            .open(&sstable_metadata.file_path)
+            .await
+            .unwrap();
+
+        let content_buffer = Vec::with_capacity(
+            sstable_metadata.file_size as usize - sstable_metadata.partition_index_size,
+        );
+        let content_buffer = file
+            .read_exact_at(content_buffer, sstable_metadata.partition_index_size as u64)
+            .await
+            .1;
+
+        let mut offset = sstable_metadata.partition_index_size;
+        while offset != content_buffer.len() {
+            let row = decode_row(
+                &content_buffer[offset..offset + table_schema.row_byte_size()],
+                table_schema,
+            );
+            memtable.insert(row, true);
+
+            offset += table_schema.row_byte_size();
+        }
+    }
+
+    let (rows, partition_index) = memtable.to_sstable_rows(total_number_of_partitions, true);
+
+    let sstable_segment = SSTableSegment::new(table_schema.clone(), rows, partition_index);
+    if let Err(error) = sstable_segment.write_to_disk().await {
+        tracing::error!("Failed to flush memtable to sstable: {}", error);
+    }
+
+    for sstable_metadata in bucket {
+        std::fs::remove_file(sstable_metadata.file_path).unwrap();
+    }
+}
+
+// TODO: null and varchar handling?

@@ -270,106 +270,8 @@ impl Value {
         self.data = ::std::option::Option::Some(value::Data::Boolean(v))
     }
 
-    // string decimal = 9;
-
-    pub fn decimal(&self) -> &str {
-        match self.data {
-            ::std::option::Option::Some(value::Data::Decimal(ref v)) => v,
-            _ => "",
-        }
-    }
-
-    pub fn clear_decimal(&mut self) {
-        self.data = ::std::option::Option::None;
-    }
-
-    pub fn has_decimal(&self) -> bool {
-        match self.data {
-            ::std::option::Option::Some(value::Data::Decimal(..)) => true,
-            _ => false,
-        }
-    }
-
-    // Param is passed by value, moved
-    pub fn set_decimal(&mut self, v: ::std::string::String) {
-        self.data = ::std::option::Option::Some(value::Data::Decimal(v))
-    }
-
-    // Mutable pointer to the field.
-    pub fn mut_decimal(&mut self) -> &mut ::std::string::String {
-        if let ::std::option::Option::Some(value::Data::Decimal(_)) = self.data {
-        } else {
-            self.data = ::std::option::Option::Some(value::Data::Decimal(::std::string::String::new()));
-        }
-        match self.data {
-            ::std::option::Option::Some(value::Data::Decimal(ref mut v)) => v,
-            _ => panic!(),
-        }
-    }
-
-    // Take field
-    pub fn take_decimal(&mut self) -> ::std::string::String {
-        if self.has_decimal() {
-            match self.data.take() {
-                ::std::option::Option::Some(value::Data::Decimal(v)) => v,
-                _ => panic!(),
-            }
-        } else {
-            ::std::string::String::new()
-        }
-    }
-
-    // string datetime = 10;
-
-    pub fn datetime(&self) -> &str {
-        match self.data {
-            ::std::option::Option::Some(value::Data::Datetime(ref v)) => v,
-            _ => "",
-        }
-    }
-
-    pub fn clear_datetime(&mut self) {
-        self.data = ::std::option::Option::None;
-    }
-
-    pub fn has_datetime(&self) -> bool {
-        match self.data {
-            ::std::option::Option::Some(value::Data::Datetime(..)) => true,
-            _ => false,
-        }
-    }
-
-    // Param is passed by value, moved
-    pub fn set_datetime(&mut self, v: ::std::string::String) {
-        self.data = ::std::option::Option::Some(value::Data::Datetime(v))
-    }
-
-    // Mutable pointer to the field.
-    pub fn mut_datetime(&mut self) -> &mut ::std::string::String {
-        if let ::std::option::Option::Some(value::Data::Datetime(_)) = self.data {
-        } else {
-            self.data = ::std::option::Option::Some(value::Data::Datetime(::std::string::String::new()));
-        }
-        match self.data {
-            ::std::option::Option::Some(value::Data::Datetime(ref mut v)) => v,
-            _ => panic!(),
-        }
-    }
-
-    // Take field
-    pub fn take_datetime(&mut self) -> ::std::string::String {
-        if self.has_datetime() {
-            match self.data.take() {
-                ::std::option::Option::Some(value::Data::Datetime(v)) => v,
-                _ => panic!(),
-            }
-        } else {
-            ::std::string::String::new()
-        }
-    }
-
     fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
-        let mut fields = ::std::vec::Vec::with_capacity(10);
+        let mut fields = ::std::vec::Vec::with_capacity(8);
         let mut oneofs = ::std::vec::Vec::with_capacity(1);
         fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
             "varchar",
@@ -419,18 +321,6 @@ impl Value {
             Value::boolean,
             Value::set_boolean,
         ));
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
-            "decimal",
-            Value::has_decimal,
-            Value::decimal,
-            Value::set_decimal,
-        ));
-        fields.push(::protobuf::reflect::rt::v2::make_oneof_deref_has_get_set_simpler_accessor::<_, _>(
-            "datetime",
-            Value::has_datetime,
-            Value::datetime,
-            Value::set_datetime,
-        ));
         oneofs.push(value::Data::generated_oneof_descriptor_data());
         ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<Value>(
             "Value",
@@ -474,12 +364,6 @@ impl ::protobuf::Message for Value {
                 64 => {
                     self.data = ::std::option::Option::Some(value::Data::Boolean(is.read_bool()?));
                 },
-                74 => {
-                    self.data = ::std::option::Option::Some(value::Data::Decimal(is.read_string()?));
-                },
-                82 => {
-                    self.data = ::std::option::Option::Some(value::Data::Datetime(is.read_string()?));
-                },
                 tag => {
                     ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
                 },
@@ -518,12 +402,6 @@ impl ::protobuf::Message for Value {
                 &value::Data::Boolean(v) => {
                     my_size += 1 + 1;
                 },
-                &value::Data::Decimal(ref v) => {
-                    my_size += ::protobuf::rt::string_size(9, &v);
-                },
-                &value::Data::Datetime(ref v) => {
-                    my_size += ::protobuf::rt::string_size(10, &v);
-                },
             };
         }
         my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
@@ -558,12 +436,6 @@ impl ::protobuf::Message for Value {
                 &value::Data::Boolean(v) => {
                     os.write_bool(8, v)?;
                 },
-                &value::Data::Decimal(ref v) => {
-                    os.write_string(9, v)?;
-                },
-                &value::Data::Datetime(ref v) => {
-                    os.write_string(10, v)?;
-                },
             };
         }
         os.write_unknown_fields(self.special_fields.unknown_fields())?;
@@ -583,8 +455,6 @@ impl ::protobuf::Message for Value {
     }
 
     fn clear(&mut self) {
-        self.data = ::std::option::Option::None;
-        self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
         self.data = ::std::option::Option::None;
@@ -645,10 +515,6 @@ pub mod value {
         Float64(f64),
         // @@protoc_insertion_point(oneof_field:Value.boolean)
         Boolean(bool),
-        // @@protoc_insertion_point(oneof_field:Value.decimal)
-        Decimal(::std::string::String),
-        // @@protoc_insertion_point(oneof_field:Value.datetime)
-        Datetime(::std::string::String),
     }
 
     impl ::protobuf::Oneof for Data {
@@ -669,15 +535,14 @@ pub mod value {
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\x0ccommon.proto\"\xad\x02\n\x05Value\x12\x1a\n\x07varchar\x18\x01\x20\
+    \n\x0ccommon.proto\"\xf3\x01\n\x05Value\x12\x1a\n\x07varchar\x18\x01\x20\
     \x01(\tH\0R\x07varchar\x12\x16\n\x05int32\x18\x02\x20\x01(\x05H\0R\x05in\
     t32\x12\x16\n\x05int64\x18\x03\x20\x01(\x03H\0R\x05int64\x12\x20\n\nunsi\
     gned32\x18\x04\x20\x01(\rH\0R\nunsigned32\x12\x20\n\nunsigned64\x18\x05\
     \x20\x01(\x04H\0R\nunsigned64\x12\x1a\n\x07float32\x18\x06\x20\x01(\x02H\
     \0R\x07float32\x12\x1a\n\x07float64\x18\x07\x20\x01(\x01H\0R\x07float64\
-    \x12\x1a\n\x07boolean\x18\x08\x20\x01(\x08H\0R\x07boolean\x12\x1a\n\x07d\
-    ecimal\x18\t\x20\x01(\tH\0R\x07decimal\x12\x1c\n\x08datetime\x18\n\x20\
-    \x01(\tH\0R\x08datetimeB\x06\n\x04datab\x06proto3\
+    \x12\x1a\n\x07boolean\x18\x08\x20\x01(\x08H\0R\x07booleanB\x06\n\x04data\
+    b\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file

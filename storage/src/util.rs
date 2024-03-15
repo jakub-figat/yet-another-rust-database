@@ -31,10 +31,16 @@ pub fn encode_row(row: &Row, table_schema: &TableSchema) -> Vec<u8> {
     let mut timestamp_bytes = row.timestamp.to_be_bytes().to_vec();
     bytes.append(&mut timestamp_bytes);
 
+    if row.marked_for_deletion {
+        bytes.push(1);
+    } else {
+        bytes.push(0);
+    }
+
     bytes
 }
 
-pub fn decode_row(bytes: &[u8], table_schema: &TableSchema, with_tombstone: bool) -> Row {
+pub fn decode_row(bytes: &[u8], table_schema: &TableSchema) -> Row {
     let hash_key = String::from_utf8(bytes[..HASH_KEY_BYTE_SIZE].to_vec()).unwrap();
     let mut offset = HASH_KEY_BYTE_SIZE;
 
@@ -68,10 +74,8 @@ pub fn decode_row(bytes: &[u8], table_schema: &TableSchema, with_tombstone: bool
 
     let mut row = Row::new_with_timestamp(hash_key, sort_key, values, timestamp);
 
-    if with_tombstone {
-        if bytes[offset] == 1u8 {
-            row.marked_for_deletion = true;
-        }
+    if bytes[offset] == 1u8 {
+        row.marked_for_deletion = true;
     }
 
     row
@@ -90,6 +94,5 @@ pub fn parse_value_from_bytes(bytes: Vec<u8>, column_type: ColumnType) -> Value 
             let value = bytes[0];
             Value::Boolean(value == 1)
         }
-        _ => panic!("Currently decimal and datetime are not supported"),
     }
 }

@@ -1,6 +1,6 @@
 use self::ColumnType::*;
 use crate::commit_log::{periodically_sync_commit_log, CommitLog};
-use crate::sstable::{flush_memtable_to_sstable, get_sstables_metadata, SSTABLES_PATH};
+use crate::sstable::{flush_memtable_to_sstable, get_sstables_metadata};
 use crate::{Memtable, HASH_KEY_BYTE_SIZE};
 use futures::lock::Mutex;
 use monoio::fs::OpenOptions;
@@ -122,7 +122,13 @@ impl TableSchema {
             .values()
             .map(|column| column.column_type.byte_size())
             .sum();
-        HASH_KEY_BYTE_SIZE + self.sort_key_type.byte_size() + values_byte_size
+
+        // hash_key, sort_key, values, timestamp, tombstone
+        HASH_KEY_BYTE_SIZE
+            + self.sort_key_type.byte_size()
+            + values_byte_size
+            + size_of::<u128>()
+            + 1
     }
 }
 
@@ -172,32 +178,12 @@ pub enum ColumnType {
     Unsigned64,
     Float32,
     Float64,
-    Decimal(usize, usize),
-    Datetime,
     Boolean,
 }
 
 impl ColumnType {
     pub fn from_string(type_string: &str) -> ColumnType {
-        let decimal_regex = Regex::new(r"DECIMAL\((\d+),(\d+)\)").unwrap();
         let varchar_regex = Regex::new(r"VARCHAR\((\d+)\)").unwrap();
-
-        if let Some(decimal_captures) = decimal_regex.captures(type_string) {
-            let num_of_digits = decimal_captures
-                .get(1)
-                .unwrap()
-                .as_str()
-                .parse::<usize>()
-                .unwrap();
-            let decimal_places = decimal_captures
-                .get(2)
-                .unwrap()
-                .as_str()
-                .parse::<usize>()
-                .unwrap();
-            return Decimal(num_of_digits, decimal_places);
-        }
-
         if let Some(varchar_captures) = varchar_regex.captures(type_string) {
             let num_of_chars = varchar_captures
                 .get(1)
@@ -215,7 +201,6 @@ impl ColumnType {
             "UNSIGNED64" => Unsigned64,
             "FLOAT32" => Float32,
             "FLOAT64" => Float64,
-            "DATETIME" => Datetime,
             "BOOLEAN" => Boolean,
             _ => panic!("Invalid column type"),
         }
@@ -230,8 +215,6 @@ impl ColumnType {
             Unsigned64 => size_of::<u64>(),
             Float32 => size_of::<f32>(),
             Float64 => size_of::<f64>(),
-            Decimal(num_of_digits, decimal_places) => num_of_digits + decimal_places,
-            Datetime => 100, // TODO
             Boolean => size_of::<bool>(),
         }
     }
@@ -247,8 +230,6 @@ impl Display for ColumnType {
             Unsigned64 => "UNSIGNED64".to_string(),
             Float32 => "FLOAT32".to_string(),
             Float64 => "FLOAT64".to_string(),
-            Decimal(numbers, decimal_places) => format!("DECIMAL({},{})", numbers, decimal_places),
-            Datetime => "DATETIME".to_string(),
             Boolean => "BOOLEAN".to_string(),
         };
         write!(f, "{}", text)

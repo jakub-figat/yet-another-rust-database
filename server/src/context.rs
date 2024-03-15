@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct ThreadContext {
     pub partitions: HashSet<usize>,
     pub total_number_of_partitions: usize,

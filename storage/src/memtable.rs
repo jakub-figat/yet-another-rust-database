@@ -68,26 +68,20 @@ impl Memtable {
         None
     }
 
-    pub fn insert(&mut self, row: Row, from_commit_log: bool) {
+    pub fn insert(&mut self, mut row: Row, check_timestamp: bool) {
         let new_level = self.get_random_level();
         let update_vec = self.get_update_vec(&row.primary_key, new_level);
 
         unsafe {
             if let Some(next_node) = (*update_vec.last().unwrap().as_ptr()).refs[0] {
                 if &row.primary_key == &(*next_node.as_ptr()).row.primary_key {
-                    if from_commit_log {
-                        if (*next_node.as_ptr()).row.timestamp >= row.timestamp {
-                            return;
-                        } else {
-                            (*next_node.as_ptr()).row.timestamp = row.timestamp;
-                        }
-                    } else {
-                        (*next_node.as_ptr()).row.timestamp = millis_from_epoch();
-                        (*next_node.as_ptr()).row.version += 1;
+                    if check_timestamp && (*next_node.as_ptr()).row.timestamp >= row.timestamp {
+                        return;
                     }
 
-                    (*next_node.as_ptr()).row.values = row.values;
-                    (*next_node.as_ptr()).row.marked_for_deletion = false;
+                    let version = (*next_node.as_ptr()).row.version;
+                    row.version = version + 1;
+                    (*next_node.as_ptr()).row = row;
 
                     return;
                 }
@@ -175,7 +169,11 @@ impl Memtable {
         level
     }
 
-    pub fn to_sstable_rows(self, num_of_partitions: usize) -> (Vec<Row>, HashMap<usize, usize>) {
+    pub fn to_sstable_rows(
+        self,
+        num_of_partitions: usize,
+        is_compaction: bool,
+    ) -> (Vec<Row>, HashMap<usize, usize>) {
         let mut partition_index = HashMap::new();
         let mut rows = Vec::with_capacity(self.size);
 
@@ -185,6 +183,10 @@ impl Memtable {
             while let Some(current_node) = current {
                 let boxed_node = Box::from_raw(current_node.as_ptr());
                 current = boxed_node.refs[0];
+
+                if is_compaction && boxed_node.row.marked_for_deletion {
+                    continue;
+                }
 
                 let row_partition =
                     get_hash_key_target_partition(&boxed_node.row.hash_key, num_of_partitions);

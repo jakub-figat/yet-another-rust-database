@@ -16,6 +16,7 @@ pub enum ThreadMessage {
     TransactionAborted(u64),
     SyncModel(String),
     DropTable(String),
+    CtrlC(oneshot::Sender<()>),
 }
 
 pub type OperationSender = mpsc::UnboundedSender<ThreadMessage>;

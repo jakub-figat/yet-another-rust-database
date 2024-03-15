@@ -2,13 +2,12 @@ use crate::context::ThreadContext;
 use crate::handlers::handle_tcp_stream;
 use crate::thread_channels::{OperationReceiver, OperationSender, ThreadMessage};
 use crate::transaction_manager::TransactionManager;
-use futures::channel::mpsc;
+use futures::channel::{mpsc, oneshot};
 use futures::lock::Mutex;
-use futures::StreamExt;
+use futures::{SinkExt, StreamExt};
 use monoio::net::TcpListener;
 use monoio::utils::CtrlC;
 use monoio::FusionDriver;
-use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
@@ -22,7 +21,8 @@ use tracing_subscriber::{filter, Layer};
 
 static TCP_STARTING_PORT: usize = 29800;
 
-pub fn run_listener_threads(num_of_threads: usize) {
+// TODO: compaction conditions and compaction thread
+pub async fn run_listener_threads(num_of_threads: usize) {
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_filter(filter::LevelFilter::WARN))
         .init();
@@ -58,6 +58,7 @@ pub fn run_listener_threads(num_of_threads: usize) {
         };
 
         thread::spawn(move || {
+            // TODO: make sure thread is pinned to core
             let mut runtime = monoio::RuntimeBuilder::<FusionDriver>::new()
                 .build()
                 .unwrap();
@@ -66,7 +67,24 @@ pub fn run_listener_threads(num_of_threads: usize) {
         });
     }
 
-    loop {}
+    let ctrl_c = CtrlC::new().unwrap();
+
+    ctrl_c.await;
+    tracing::info!("Shutting down...");
+
+    let mut ctrl_c_receivers = Vec::new();
+    for thread_num in 0..num_of_threads {
+        let (sender, receiver) = oneshot::channel();
+        ctrl_c_receivers.push(receiver);
+        senders[thread_num]
+            .send(ThreadMessage::CtrlC(sender))
+            .await
+            .unwrap();
+    }
+
+    for ctrl_c_receiver in ctrl_c_receivers {
+        ctrl_c_receiver.await.unwrap();
+    }
 }
 
 async fn thread_main(
@@ -74,7 +92,6 @@ async fn thread_main(
     senders: Vec<OperationSender>,
     mut receiver: OperationReceiver,
 ) {
-    let mut ctrl_c = CtrlC::new().unwrap();
     let table_schemas = read_table_schemas().await.unwrap();
     let mut tables = HashMap::new();
     for table_schema in table_schemas {
@@ -143,24 +160,24 @@ async fn thread_main(
                     ThreadMessage::DropTable(table_name) => {
                         drop_table(table_name, tables.clone()).await.unwrap();
                     }
-                }
-            }
-            _ = &mut ctrl_c => {
-                tracing::info!("Shutting down database, flushing memtables...");
-                let mut tables = tables.lock().await;
-                for (_, table) in tables.iter_mut() {
-                    let mut memtable = Memtable::default();
-                    std::mem::swap(&mut table.memtable, &mut memtable);
+                    ThreadMessage::CtrlC(sender) => {
+                        tracing::info!("Shutting down database thread, flushing memtables...");
+                        let mut tables = tables.lock().await;
+                        for (_, table) in tables.iter_mut() {
+                            let mut memtable = Memtable::default();
+                            std::mem::swap(&mut table.memtable, &mut memtable);
 
-                    flush_memtable_to_sstable(
-                        memtable,
-                        table.commit_log.clone(),
-                        table.table_schema.clone(),
-                        thread_context.total_number_of_partitions
-                    )
-                    .await;
+                            flush_memtable_to_sstable(
+                                memtable,
+                                table.commit_log.clone(),
+                                table.table_schema.clone(),
+                                thread_context.total_number_of_partitions
+                            )
+                            .await;
+                        }
+                        sender.send(()).unwrap();
+                    }
                 }
-                break;
             }
         }
     }

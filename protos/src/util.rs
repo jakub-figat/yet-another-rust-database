@@ -14,8 +14,6 @@ pub fn parse_value_from_proto(value: ProtoValue) -> Value {
             ProtoValueData::Float32(data) => Float32(data),
             ProtoValueData::Float64(data) => Float64(data),
             ProtoValueData::Boolean(data) => Boolean(data),
-            ProtoValueData::Decimal(data) => Decimal(data),
-            ProtoValueData::Datetime(data) => Datetime(data),
         },
         None => Null,
     }
@@ -31,8 +29,6 @@ pub fn parse_proto_from_value(value: Value) -> ProtoValue {
         Float32(data) => Some(ProtoValueData::Float32(data)),
         Float64(data) => Some(ProtoValueData::Float64(data)),
         Boolean(data) => Some(ProtoValueData::Boolean(data)),
-        Decimal(data) => Some(ProtoValueData::Decimal(data)),
-        Datetime(data) => Some(ProtoValueData::Datetime(data)),
         Null => None,
     };
 

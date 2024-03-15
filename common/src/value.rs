@@ -11,8 +11,6 @@ pub enum Value {
     Unsigned64(u64),
     Float32(f32),
     Float64(f64),
-    Decimal(String),
-    Datetime(String),
     Boolean(bool),
     Null,
 }
@@ -27,8 +25,6 @@ impl Value {
             Unsigned64(value) => value.to_be_bytes().to_vec(),
             Float32(value) => value.to_be_bytes().to_vec(),
             Float64(value) => value.to_be_bytes().to_vec(),
-            Decimal(_value) => Vec::with_capacity(5), // TODO
-            Datetime(_value) => Vec::with_capacity(5), // TODO
             Boolean(value) => {
                 if value {
                     return Vec::from([1u8]);
@@ -50,8 +46,6 @@ impl Display for Value {
             Unsigned64(val) => val.to_string(),
             Float32(val) => val.to_string(),
             Float64(val) => val.to_string(),
-            Decimal(val) => val.clone(),
-            Datetime(val) => val.clone(),
             Boolean(val) => val.to_string(),
             Null => "".to_string(),
         };
@@ -69,8 +63,6 @@ impl GetSize for Value {
             Unsigned64(val) => val.get_size(),
             Float32(val) => val.get_size(),
             Float64(val) => val.get_size(),
-            Decimal(val) => val.get_size(),
-            Datetime(val) => val.get_size(),
             Boolean(val) => val.get_size(),
             Null => 0,
         }

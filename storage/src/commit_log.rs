@@ -139,7 +139,7 @@ pub async fn replay_commit_logs(
         for operation_bytes in byte_operations {
             match operation_bytes[0] {
                 1 => {
-                    let row = decode_row(&operation_bytes[1..], table_schema, false);
+                    let row = decode_row(&operation_bytes[1..], table_schema);
                     memtable.insert(row, true);
                 }
                 2 => {

@@ -1,7 +1,5 @@
 for 0.1.0 "alpha":
 1. some tests
-2. compaction
 3. check file i/o, do something about blocking file /io (removing)
-4. nulls, datetimes, decimals
 5. readme
 6. dockerfile

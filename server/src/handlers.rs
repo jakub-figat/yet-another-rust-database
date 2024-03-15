@@ -14,14 +14,14 @@ use monoio::net::TcpStream;
 use protobuf::Message;
 use protos::util::client_error_to_proto_response;
 use protos::{ProtoResponse, ProtoResponseData, ServerError};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
 use storage::sstable::read_row_from_sstable;
 use storage::table::{drop_table, sync_model, Table};
 use storage::transaction::Transaction;
 use storage::validation::validate_values_against_schema;
-use storage::Row;
+use storage::{Row, HASH_KEY_BYTE_SIZE};
 
 pub async fn handle_tcp_stream(
     mut stream: TcpStream,
@@ -110,6 +110,7 @@ async fn handle_tcp_request(
 
     let proto_response = match command {
         Command::Single(operation, table_name) => {
+            validate_hash_key_size(&operation.hash_key())?;
             validate_hash_key_partition(&operation.hash_key(), thread_context)?;
 
             let operation_response = handle_operation(
@@ -244,6 +245,17 @@ async fn handle_tcp_request(
     Ok(proto_response)
 }
 
+fn validate_hash_key_size(hash_key: &str) -> Result<(), HandlerError> {
+    if hash_key.as_bytes().len() > HASH_KEY_BYTE_SIZE {
+        return Err(HandlerError::Client(format!(
+            "Hash key cannot be longer than {} bytes",
+            HASH_KEY_BYTE_SIZE
+        )));
+    }
+
+    Ok(())
+}
+
 fn validate_hash_key_partition(
     hash_key: &str,
     thread_context: &ThreadContext,
@@ -308,7 +320,9 @@ async fn handle_operations(
     let mut responses = Vec::with_capacity(operations.len());
 
     for operation in operations {
+        validate_hash_key_size(&operation.hash_key())?;
         validate_hash_key_partition(&operation.hash_key(), thread_context)?;
+
         responses.push(
             execute_operation(
                 operation,

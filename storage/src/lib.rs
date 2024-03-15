@@ -1,4 +1,4 @@
-pub static HASH_KEY_BYTE_SIZE: usize = 64;
+pub static HASH_KEY_BYTE_SIZE: usize = 128;
 
 pub mod commit_log;
 mod memtable;

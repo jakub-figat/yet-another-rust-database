@@ -69,8 +69,6 @@ fn check_value_matches_column_type(value: &Value, column_type: &ColumnType) -> b
         (Value::Unsigned64(_), ColumnType::Unsigned64) => true,
         (Value::Float32(_), ColumnType::Float32) => true,
         (Value::Float64(_), ColumnType::Float64) => true,
-        (Value::Decimal(_), ColumnType::Decimal(_, _)) => true,
-        (Value::Datetime(_), ColumnType::Datetime) => true,
         (Value::Boolean(_), ColumnType::Boolean) => true,
         _ => false,
     }
@@ -78,15 +76,13 @@ fn check_value_matches_column_type(value: &Value, column_type: &ColumnType) -> b
 
 fn value_to_column_type(value: &Value) -> ColumnType {
     match value {
-        Value::Varchar(_) => ColumnType::Varchar(0), // TODO string, datetime and decimal validation
+        Value::Varchar(_) => ColumnType::Varchar(0), // TODO string
         Value::Int32(_) => ColumnType::Int32,
         Value::Int64(_) => ColumnType::Int64,
         Value::Unsigned32(_) => ColumnType::Unsigned32,
         Value::Unsigned64(_) => ColumnType::Unsigned64,
         Value::Float32(_) => ColumnType::Float32,
         Value::Float64(_) => ColumnType::Float64,
-        Value::Decimal(_) => ColumnType::Decimal(0, 0),
-        Value::Datetime(_) => ColumnType::Datetime,
         Value::Boolean(_) => ColumnType::Boolean,
         _ => panic!("Invalid value variant"),
     }

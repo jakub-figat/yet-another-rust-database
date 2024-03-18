@@ -322,7 +322,7 @@ pub async fn compaction_main(
     table_schemas: Vec<TableSchema>,
     total_number_of_partitions: usize,
 ) {
-    let interval = Duration::from_secs(300);
+    let interval = Duration::from_secs(60);
     loop {
         monoio::select! {
             _ = sleep(interval) => {

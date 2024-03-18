@@ -15,10 +15,10 @@ use std::time::Duration;
 static COMMIT_LOG_SEGMENTS_FILE_PATH: &str = "/var/lib/yard/commit_logs";
 
 pub struct CommitLog {
-    file: Option<File>,
-    file_path: String,
+    pub(crate) file: Option<File>,
+    pub(crate) file_path: String,
     pub file_offset: u64,
-    table_schema: TableSchema,
+    pub(crate) table_schema: TableSchema,
     pub partition: usize,
     pub closed: bool,
 }

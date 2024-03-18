@@ -2,7 +2,7 @@ use crate::value::Value::*;
 use get_size::GetSize;
 use std::fmt::Display;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Varchar(String),
     Int32(i32),

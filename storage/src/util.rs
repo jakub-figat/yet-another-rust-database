@@ -23,9 +23,12 @@ pub fn encode_row(row: &Row, table_schema: &TableSchema) -> Vec<u8> {
     let mut sort_key_bytes = row.sort_key.clone().to_bytes();
     bytes.append(&mut sort_key_bytes);
 
-    for name in table_schema.columns.keys() {
-        let mut value_bytes = row.values.get(name).unwrap().clone().to_bytes();
-        bytes.append(&mut value_bytes);
+    for (name, column) in &table_schema.columns {
+        let mut value_buffer = BufWriter::new(vec![0u8; column.column_type.byte_size()]);
+        value_buffer
+            .write_all(&row.values.get(name).unwrap().clone().to_bytes())
+            .unwrap();
+        bytes.append(&mut value_buffer.get_mut());
     }
 
     let mut timestamp_bytes = row.timestamp.to_be_bytes().to_vec();
@@ -82,6 +85,10 @@ pub fn decode_row(bytes: &[u8], table_schema: &TableSchema) -> Row {
 }
 
 pub fn parse_value_from_bytes(bytes: Vec<u8>, column_type: ColumnType) -> Value {
+    if bytes[0] == b'\x00' {
+        return Value::Null;
+    }
+
     match column_type {
         ColumnType::Varchar(_) => Value::Varchar(String::from_utf8(bytes).unwrap()),
         ColumnType::Int32 => Value::Int32(i32::from_be_bytes(bytes.try_into().unwrap())),

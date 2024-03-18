@@ -48,6 +48,17 @@ pub fn validate_values_against_schema(
                 value_to_column_type(value)
             ));
         }
+
+        if !check_string_length(&value, &column.column_type) {
+            let max_length = match &column.column_type {
+                ColumnType::Varchar(max_length) => max_length,
+                _ => panic!("Invalid column type"),
+            };
+            errors.push(format!(
+                "'{}': String length exceeded max length of {}",
+                column_name, max_length
+            ));
+        }
     }
 
     if !errors.is_empty() {
@@ -58,6 +69,20 @@ pub fn validate_values_against_schema(
     }
 
     Ok(())
+}
+
+fn check_string_length(value: &Value, column_type: &ColumnType) -> bool {
+    match value {
+        Value::Varchar(value) => {
+            let max_length = match column_type {
+                ColumnType::Varchar(max_length) => max_length,
+                _ => panic!("Invalid column type"),
+            };
+
+            max_length >= &value.len()
+        }
+        _ => true,
+    }
 }
 
 fn check_value_matches_column_type(value: &Value, column_type: &ColumnType) -> bool {

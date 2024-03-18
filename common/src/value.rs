@@ -31,7 +31,7 @@ impl Value {
                 }
                 Vec::from([0u8])
             }
-            Null => Vec::with_capacity(0),
+            Null => Vec::from([b'\x00']),
         }
     }
 }

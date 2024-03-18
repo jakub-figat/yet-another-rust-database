@@ -13,6 +13,7 @@ For learning purposes.
 - Table schema and validation
 - SStables
 - Commit log
+- Compaction
 
 ### Work in progress:
 - Tests

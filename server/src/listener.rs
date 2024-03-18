@@ -12,8 +12,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
 use storage::commit_log::{replay_commit_logs, CommitLog};
-use storage::sstable::flush_memtable_to_sstable;
-use storage::table::{drop_table, read_table_schemas, sync_model, Table};
+use storage::sstable::{compaction_main, flush_memtable_to_sstable};
+use storage::table::{drop_table, read_table_schemas, sync_model, Table, TableSchema};
 use storage::Memtable;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -21,11 +21,33 @@ use tracing_subscriber::{filter, Layer};
 
 static TCP_STARTING_PORT: usize = 29800;
 
-// TODO: compaction conditions and compaction thread
 pub async fn run_listener_threads(num_of_threads: usize) {
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_filter(filter::LevelFilter::WARN))
         .init();
+
+    let num_of_threads = match num_of_threads > 0 {
+        true => num_of_threads,
+        false => 1,
+    };
+
+    let num_of_partitions = 1000usize;
+    let table_schemas = read_table_schemas().await.unwrap();
+
+    let (mut compaction_thread_sender, compaction_thread_receiver) = mpsc::channel(16);
+
+    let table_schemas2 = table_schemas.clone();
+    thread::spawn(move || {
+        let mut runtime = monoio::RuntimeBuilder::<FusionDriver>::new()
+            .build()
+            .unwrap();
+
+        runtime.block_on(compaction_main(
+            compaction_thread_receiver,
+            table_schemas2,
+            num_of_partitions,
+        ));
+    });
 
     let mut senders = Vec::with_capacity(num_of_threads);
     let mut receivers = Vec::with_capacity(num_of_threads);
@@ -37,7 +59,6 @@ pub async fn run_listener_threads(num_of_threads: usize) {
         receivers.push(Some(command_receiver));
     }
 
-    let num_of_partitions = 1000usize;
     let mut partitions_per_thread = HashMap::new();
     for partition in 0..num_of_partitions {
         partitions_per_thread
@@ -47,6 +68,7 @@ pub async fn run_listener_threads(num_of_threads: usize) {
     }
 
     for thread_num in 0..num_of_threads {
+        let table_schemas = table_schemas.clone();
         let senders = senders.clone();
         let receiver = receivers[thread_num].take().unwrap();
         let thread_partitions = partitions_per_thread.remove(&thread_num).unwrap();
@@ -63,7 +85,12 @@ pub async fn run_listener_threads(num_of_threads: usize) {
                 .build()
                 .unwrap();
 
-            runtime.block_on(thread_main(thread_context, senders, receiver));
+            runtime.block_on(thread_main(
+                thread_context,
+                senders,
+                receiver,
+                table_schemas.clone(),
+            ));
         });
     }
 
@@ -82,6 +109,10 @@ pub async fn run_listener_threads(num_of_threads: usize) {
             .unwrap();
     }
 
+    let (sender, receiver) = oneshot::channel();
+    ctrl_c_receivers.push(receiver);
+    compaction_thread_sender.send(sender).await.unwrap();
+
     for ctrl_c_receiver in ctrl_c_receivers {
         ctrl_c_receiver.await.unwrap();
     }
@@ -91,8 +122,8 @@ async fn thread_main(
     thread_context: ThreadContext,
     senders: Vec<OperationSender>,
     mut receiver: OperationReceiver,
+    table_schemas: Vec<TableSchema>,
 ) {
-    let table_schemas = read_table_schemas().await.unwrap();
     let mut tables = HashMap::new();
     for table_schema in table_schemas {
         replay_commit_logs(

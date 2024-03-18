@@ -2,12 +2,18 @@ use crate::commit_log::CommitLog;
 use crate::table::{Table, TableSchema};
 use crate::util::{decode_row, encode_row, millis_from_epoch};
 use crate::{Memtable, Row, MEGABYTE};
+use futures::channel::mpsc::Receiver;
+use futures::channel::oneshot;
 use futures::lock::Mutex;
+use futures::StreamExt;
+use monoio;
 use monoio::fs::{File, OpenOptions};
+use monoio::time::sleep;
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::os::unix::fs::MetadataExt;
 use std::sync::Arc;
+use std::time::Duration;
 
 pub static SSTABLES_PATH: &str = "/var/lib/yard/sstables";
 
@@ -311,4 +317,34 @@ async fn compact_bucket(
     }
 }
 
-// TODO: null and varchar handling?
+pub async fn compaction_main(
+    mut ctrl_c_receiver: Receiver<oneshot::Sender<()>>,
+    table_schemas: Vec<TableSchema>,
+    total_number_of_partitions: usize,
+) {
+    let interval = Duration::from_secs(10);
+    loop {
+        monoio::select! {
+            _ = sleep(interval) => {
+                for schema in &table_schemas {
+                    conditionally_compact_table_sstables(schema, total_number_of_partitions).await;
+                }
+            }
+            Some(ctrl_c_sender) = ctrl_c_receiver.next() => {
+                ctrl_c_sender.send(()).unwrap();
+                break;
+            }
+        }
+    }
+}
+
+async fn conditionally_compact_table_sstables(
+    table_schema: &TableSchema,
+    total_number_of_partitions: usize,
+) {
+    let sstable_metadatas = get_sstables_metadata(&table_schema.name);
+
+    if sstable_metadatas.len() > 32 {
+        compact_sstables(table_schema, total_number_of_partitions).await;
+    }
+}

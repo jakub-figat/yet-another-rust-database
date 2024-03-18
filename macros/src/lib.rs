@@ -459,7 +459,7 @@ fn parse_to_value_quote_for_option_inner(field_type: &str) -> TokenStream {
 fn field_to_column_type(field: &Field) -> (ColumnType, bool) {
     let field_type = get_field_type(field);
     match field_type.as_str() {
-        "String" => (ColumnType::Varchar(1000), false),
+        "String" => (ColumnType::Varchar(1024), false),
         "i32" => (ColumnType::Int32, false),
         "i64" => (ColumnType::Int64, false),
         "u32" => (ColumnType::Unsigned32, false),

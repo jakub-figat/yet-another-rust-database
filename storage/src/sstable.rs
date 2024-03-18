@@ -322,7 +322,7 @@ pub async fn compaction_main(
     table_schemas: Vec<TableSchema>,
     total_number_of_partitions: usize,
 ) {
-    let interval = Duration::from_secs(10);
+    let interval = Duration::from_secs(300);
     loop {
         monoio::select! {
             _ = sleep(interval) => {
@@ -344,7 +344,7 @@ async fn conditionally_compact_table_sstables(
 ) {
     let sstable_metadatas = get_sstables_metadata(&table_schema.name);
 
-    if sstable_metadatas.len() > 32 {
+    if sstable_metadatas.len() > 4 {
         compact_sstables(table_schema, total_number_of_partitions).await;
     }
 }

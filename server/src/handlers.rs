@@ -17,8 +17,8 @@ use protos::{ProtoResponse, ProtoResponseData, ServerError};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::sync::Arc;
-use storage::sstable::read_row_from_sstable;
-use storage::table::{drop_table, sync_model, Table};
+use storage::sstable::{read_row_from_sstable, SSTABLES_DIR};
+use storage::table::{drop_table, sync_model, Table, TABLE_SCHEMAS_FILE_PATH};
 use storage::transaction::Transaction;
 use storage::validation::validate_values_against_schema;
 use storage::{Row, HASH_KEY_BYTE_SIZE};
@@ -223,6 +223,7 @@ async fn handle_tcp_request(
                 schema_string.clone(),
                 tables.clone(),
                 &thread_context.partitions,
+                TABLE_SCHEMAS_FILE_PATH,
             )
             .await
             .map_err(|e| HandlerError::Client(e))?;
@@ -230,9 +231,14 @@ async fn handle_tcp_request(
             Response::SyncModel.to_proto_response()
         }
         Command::DropTable(table_name) => {
-            drop_table(table_name.clone(), tables.clone())
-                .await
-                .map_err(|e| HandlerError::Client(e))?;
+            drop_table(
+                table_name.clone(),
+                tables.clone(),
+                TABLE_SCHEMAS_FILE_PATH,
+                SSTABLES_DIR,
+            )
+            .await
+            .map_err(|e| HandlerError::Client(e))?;
             send_drop_table(table_name, senders, thread_context.current_thread_number).await;
             Response::DropTable.to_proto_response()
         }
@@ -366,6 +372,7 @@ async fn execute_operation(
                         thread_context.total_number_of_partitions,
                     ),
                     &table,
+                    SSTABLES_DIR,
                 )
                 .await;
             }

@@ -12,8 +12,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
 use storage::commit_log::{replay_commit_logs, CommitLog};
-use storage::sstable::{compaction_main, flush_memtable_to_sstable};
-use storage::table::{drop_table, read_table_schemas, sync_model, Table, TableSchema};
+use storage::sstable::{compaction_main, flush_memtable_to_sstable, SSTABLES_DIR};
+use storage::table::{
+    drop_table, read_table_schemas, sync_model, Table, TableSchema, TABLE_SCHEMAS_DIR,
+    TABLE_SCHEMAS_FILE_PATH,
+};
 use storage::Memtable;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -22,6 +25,8 @@ use tracing_subscriber::{filter, Layer};
 static TCP_STARTING_PORT: usize = 29800;
 
 pub async fn run_listener_threads(num_of_threads: usize) {
+    std::fs::create_dir_all(TABLE_SCHEMAS_DIR).unwrap();
+    std::fs::create_dir_all(SSTABLES_DIR).unwrap();
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().with_filter(filter::LevelFilter::WARN))
         .init();
@@ -32,7 +37,7 @@ pub async fn run_listener_threads(num_of_threads: usize) {
     };
 
     let num_of_partitions = 1000usize;
-    let table_schemas = read_table_schemas().await.unwrap();
+    let table_schemas = read_table_schemas(TABLE_SCHEMAS_FILE_PATH).await.unwrap();
 
     let (mut compaction_thread_sender, compaction_thread_receiver) = mpsc::channel(16);
 
@@ -46,6 +51,7 @@ pub async fn run_listener_threads(num_of_threads: usize) {
             compaction_thread_receiver,
             table_schemas2,
             num_of_partitions,
+            SSTABLES_DIR,
         ));
     });
 
@@ -186,10 +192,10 @@ async fn thread_main(
                         manager.remove(transaction_id);
                     }
                     ThreadMessage::SyncModel(schema_string) => {
-                        sync_model(schema_string, tables.clone(), &thread_context.partitions).await.unwrap();
+                        sync_model(schema_string, tables.clone(), &thread_context.partitions, TABLE_SCHEMAS_FILE_PATH).await.unwrap();
                     }
                     ThreadMessage::DropTable(table_name) => {
-                        drop_table(table_name, tables.clone()).await.unwrap();
+                        drop_table(table_name, tables.clone(), TABLE_SCHEMAS_FILE_PATH, SSTABLES_DIR).await.unwrap();
                     }
                     ThreadMessage::CtrlC(sender) => {
                         tracing::info!("Shutting down database thread, flushing memtables...");

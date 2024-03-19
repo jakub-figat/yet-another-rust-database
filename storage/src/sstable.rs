@@ -15,7 +15,7 @@ use std::os::unix::fs::MetadataExt;
 use std::sync::Arc;
 use std::time::Duration;
 
-pub static SSTABLES_PATH: &str = "/var/lib/yard/sstables";
+pub static SSTABLES_DIR: &str = "/var/lib/yard/sstables";
 
 pub struct SSTableSegment {
     table_schema: TableSchema,
@@ -36,7 +36,7 @@ impl SSTableSegment {
         }
     }
 
-    pub async fn write_to_disk(self) -> Result<(), String> {
+    pub async fn write_to_disk(self, sstable_dir: &str) -> Result<(), String> {
         let partition_index_bytes = self
             .partition_index
             .into_iter()
@@ -56,7 +56,7 @@ impl SSTableSegment {
         let partition_index_length = partition_index_bytes.len() as u64;
         let file_name = format!(
             "{}/{}-{}-{}-{}",
-            SSTABLES_PATH,
+            sstable_dir,
             self.table_schema.name,
             partition_index_length,
             num_of_rows,
@@ -101,7 +101,7 @@ pub async fn flush_memtable_to_sstable(
 ) {
     let (rows, partition_index) = memtable.to_sstable_rows(total_number_of_partitions, false);
     let sstable_segment = SSTableSegment::new(table_schema, rows, partition_index);
-    if let Err(error) = sstable_segment.write_to_disk().await {
+    if let Err(error) = sstable_segment.write_to_disk(SSTABLES_DIR).await {
         tracing::error!("Failed to flush memtable to sstable: {}", error);
     }
 
@@ -113,8 +113,9 @@ pub async fn read_row_from_sstable(
     primary_key: &str,
     partition: usize,
     table: &Table,
+    sstable_dir: &str,
 ) -> Option<Row> {
-    let mut sstable_metadatas = get_sstables_metadata(&table.table_schema.name);
+    let mut sstable_metadatas = get_sstables_metadata(&table.table_schema.name, sstable_dir);
     sstable_metadatas.sort_by(|metadata1, metadata2| metadata2.timestamp.cmp(&metadata1.timestamp));
 
     for sstable_metadata in sstable_metadatas {
@@ -199,8 +200,8 @@ async fn binary_search_row_in_file(
     None
 }
 
-pub fn get_sstables_metadata(table_name: &str) -> Vec<SSTableMetadata> {
-    read_dir(SSTABLES_PATH)
+pub fn get_sstables_metadata(table_name: &str, sstable_dir: &str) -> Vec<SSTableMetadata> {
+    read_dir(sstable_dir)
         .unwrap()
         .filter_map(|memtable_path| {
             let memtable_path = memtable_path.unwrap();
@@ -230,14 +231,18 @@ pub fn get_sstables_metadata(table_name: &str) -> Vec<SSTableMetadata> {
         .collect()
 }
 
-pub async fn compact_sstables(table_schema: &TableSchema, total_number_of_partitions: usize) {
+pub async fn compact_sstables(
+    table_schema: &TableSchema,
+    total_number_of_partitions: usize,
+    sstable_dir: &str,
+) {
     // size tiered compaction
     let bucket_low = 0.5;
     let bucket_high = 1.5;
     let bucket_size_range = 4..=32;
     let sstable_min_size = (50 * MEGABYTE) as f64;
 
-    let mut sstables_metadatas = get_sstables_metadata(&table_schema.name);
+    let mut sstables_metadatas = get_sstables_metadata(&table_schema.name, sstable_dir);
     sstables_metadatas
         .sort_by(|metadata1, metadata2| metadata2.file_size.cmp(&metadata1.file_size));
 
@@ -261,7 +266,13 @@ pub async fn compact_sstables(table_schema: &TableSchema, total_number_of_partit
 
     for bucket in buckets {
         if bucket_size_range.contains(&bucket.len()) {
-            compact_bucket(bucket, table_schema, total_number_of_partitions).await;
+            compact_bucket(
+                bucket,
+                table_schema,
+                total_number_of_partitions,
+                sstable_dir,
+            )
+            .await;
         }
     }
 }
@@ -275,6 +286,7 @@ async fn compact_bucket(
     bucket: Vec<SSTableMetadata>,
     table_schema: &TableSchema,
     total_number_of_partitions: usize,
+    sstable_dir: &str,
 ) {
     let mut memtable = Memtable::default();
 
@@ -308,7 +320,7 @@ async fn compact_bucket(
     let (rows, partition_index) = memtable.to_sstable_rows(total_number_of_partitions, true);
 
     let sstable_segment = SSTableSegment::new(table_schema.clone(), rows, partition_index);
-    if let Err(error) = sstable_segment.write_to_disk().await {
+    if let Err(error) = sstable_segment.write_to_disk(sstable_dir).await {
         tracing::error!("Failed to flush memtable to sstable: {}", error);
     }
 
@@ -321,13 +333,14 @@ pub async fn compaction_main(
     mut ctrl_c_receiver: Receiver<oneshot::Sender<()>>,
     table_schemas: Vec<TableSchema>,
     total_number_of_partitions: usize,
+    sstable_dir: &str,
 ) {
     let interval = Duration::from_secs(60);
     loop {
         monoio::select! {
             _ = sleep(interval) => {
                 for schema in &table_schemas {
-                    conditionally_compact_table_sstables(schema, total_number_of_partitions).await;
+                    conditionally_compact_table_sstables(schema, total_number_of_partitions, sstable_dir).await;
                 }
             }
             Some(ctrl_c_sender) = ctrl_c_receiver.next() => {
@@ -341,10 +354,11 @@ pub async fn compaction_main(
 async fn conditionally_compact_table_sstables(
     table_schema: &TableSchema,
     total_number_of_partitions: usize,
+    sstable_dir: &str,
 ) {
-    let sstable_metadatas = get_sstables_metadata(&table_schema.name);
+    let sstable_metadatas = get_sstables_metadata(&table_schema.name, sstable_dir);
 
     if sstable_metadatas.len() > 4 {
-        compact_sstables(table_schema, total_number_of_partitions).await;
+        compact_sstables(table_schema, total_number_of_partitions, sstable_dir).await;
     }
 }
